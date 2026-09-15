@@ -195,6 +195,12 @@ function amap:print_log(msg, new_line)
         else
             cecho("<CadetBlue>(mapper)<tomato>: " .. msg .. "\n")
         end
+        -- lokalizatory gps wypisuja "GPS: <nazwa lokacji>" - to jedyne miejsce,
+        -- w ktorym wszystkie schodza sie razem, wiec stad idzie event
+        local location = msg:match("^GPS: (.+)$")
+        if location then
+            raiseEvent("amapGpsLocation", location)
+        end
     end
 end
 

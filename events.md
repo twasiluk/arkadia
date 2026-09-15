@@ -75,6 +75,19 @@ Event ten jest podnozszony gdy lokacja zostaje ustawiona (recznie lub automatycz
 
 ---
 
+## `amapGpsLocation`
+
+Argumenty:
+
+* `arg1`: nazwa lokacji, tak jak wypisal ja lokalizator gps
+
+Event ten jest podnoszony gdy ktorykolwiek lokalizator gps zameldowal pozycje,
+czyli przy kazdej linii `(mapper): GPS: <nazwa>`. Podnoszony jest zanim mapper
+ustawi pozycje, wiec `amap.curr` wskazuje jeszcze poprzednia lokacje - ID nowej
+przynosi `setPosition`.
+
+---
+
 ## `amapGateStoppedWalker`
 
 Event podniesiony w momencie, kiedy chodzik zostal zatrzymany brama.
