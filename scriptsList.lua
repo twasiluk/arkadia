@@ -157,6 +157,7 @@ return {
     "skrypty/misc/compare_with_everyone",
     "skrypty/transport/transports",
     "skrypty/transport/ride",
+    "skrypty/transport/podroz",
     "skrypty/utils/colors",
     "skrypty/utils/list",
     "skrypty/utils/sounds",

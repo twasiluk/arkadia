@@ -88,6 +88,24 @@ przynosi `setPosition`.
 
 ---
 
+## `podrozBoarded`
+
+Argumenty:
+
+* `arg1`: rodzaj pojazdu - `dylizans` lub `statek`
+
+Event podniesiony kiedy postac wsiadla do dylizansu lub na statek.
+
+## `podrozLeft`
+
+Argumenty:
+
+* `arg1`: rodzaj pojazdu - `dylizans` lub `statek`
+
+Event podniesiony kiedy postac wysiadla z dylizansu lub zeszla ze statku.
+
+---
+
 ## `amapGateStoppedWalker`
 
 Event podniesiony w momencie, kiedy chodzik zostal zatrzymany brama.

@@ -1404,3 +1404,15 @@ Rozpoczyna prowadzenie wskazanej osoby po mapie.
 ## `/prowadz-`
 
 Kończy prowadzenie aktualnej osoby.
+
+## `podroz do <przystanek>`
+
+Czeka na dylizans lub statek (co pierwsze sie zatrzyma), wsiada (na statek: `wem`, `kup bilet`, `wsiadz na statek`, `wlm`) i wysiada, gdy lokalizator gps zamelduje lokacje zawierajaca podany fragment nazwy. Jesli postac juz jest w pojezdzie, tylko ustawia cel. Czekanie wygasa po 15 min, cel po 30 min.
+
+## `podroz stop`
+
+Przerywa czekanie i podroz do celu.
+
+## `podroz stan`
+
+Wypisuje aktualny cel, pojazd i czy trwa czekanie.
