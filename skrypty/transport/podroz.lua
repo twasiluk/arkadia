@@ -45,10 +45,7 @@ end
 -- zapamietanego wsiadania handler musi milczec.
 function scripts.podroz:boarded(vehicle)
     self:stop_waiting(true)
-    -- limit czasu obejmuje tylko czekanie - sam przejazd trwa, ile trwa
-    if self.timer then killTimer(self.timer); self.timer = nil end
     self.vehicle = vehicle
-    self.last_vehicle = vehicle
     raiseEvent("podrozBoarded", vehicle)
     if vehicle == "dylizans" then
         self:watch_carriage_exit()
@@ -80,9 +77,9 @@ end
 
 -- Z dylizansu nie ma stalej linii wyjscia. Wnetrze pojazdu nie ma mapy
 -- w gmcp.room.info, wiec pierwsza lokacja z mapa po wnetrzu = wysiadka.
-function scripts.podroz:watch_carriage_exit(inside)
+function scripts.podroz:watch_carriage_exit()
     if self.room_handler then killAnonymousEventHandler(self.room_handler) end
-    inside = inside or false
+    local inside = false
     self.room_handler = registerAnonymousEventHandler("gmcp.room.info", function()
         if not gmcp.room.info.map then
             inside = true
@@ -94,20 +91,8 @@ end
 
 -- ---------- meldunek lokalizatora ----------
 function scripts.podroz:gps(location)
+    if not self.vehicle then return end
     if not self:matches(location) then return end
-    if not self.vehicle then
-        -- wnetrze pojazdu nie ma mapy; jesli jestesmy w srodku, a wysiadka
-        -- zostala blednie wykryta (lub wsiadanie przeoczone), ratuj sie
-        -- ostatnim pojazdem
-        local inside = gmcp.room and gmcp.room.info and not gmcp.room.info.map
-        if not (inside and self.last_vehicle) then
-            print_log("<DimGrey>GPS " .. location .. " pasuje do celu, ale nie jestem w pojezdzie")
-            return
-        end
-        print_log("<DimGrey>nie wykrylem pojazdu, zakladam " .. self.last_vehicle)
-        self.vehicle = self.last_vehicle
-        if self.vehicle == "dylizans" then self:watch_carriage_exit(true) end
-    end
     send(exit_commands[self.vehicle], false)
     print_log("<green>wysiadam - " .. location)
     local walk_to, legs = self.walk_to, self.legs
