@@ -149,7 +149,6 @@ function scripts.podroz:wait()
         scripts.podroz.wait_timer = nil
         scripts.podroz:cancel()
     end)
-    print_log("<DimGrey>czekam na dylizans lub statek...")
 end
 
 function scripts.podroz:stop_waiting(silent)
@@ -169,10 +168,23 @@ function scripts.podroz:start(target, walk_to)
         scripts.podroz.timer = nil
         scripts.podroz:cancel()
     end)
-    print_log("<green>cel - " .. target .. (walk_to and (", potem /idz " .. walk_to) or ""))
-    if not self.vehicle then
-        self:wait()
-        if not amap.walker then send("spojrz", false) end
+    local log_start = function()
+        print_log("<green>cel - " .. target .. (walk_to and (", potem /idz " .. walk_to) or ""))
+        if scripts.podroz.wait_triggers then
+            print_log("<DimGrey>czekam na dylizans lub statek...")
+        end
+    end
+    if self.vehicle then
+        log_start()
+        return
+    end
+    self:wait()
+    if amap.walker then
+        log_start()
+    else
+        -- log po opisie lokacji, zeby nie zginal nad nim
+        send("spojrz", false)
+        tempTimer(1, log_start)
     end
 end
 
