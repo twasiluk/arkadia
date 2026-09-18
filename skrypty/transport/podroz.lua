@@ -275,7 +275,7 @@ end
 
 -- ---------- rejestracja ----------
 local vehicle_lines = {
-    ["[Ww]siadasz do .*(dylizansu|wozu|powozu)\\.$"] = "dylizans",
+    ["[Ww]siadasz (?:do|na) .*(?:dylizansu?|wozu?|powozu?)\\.$"] = "dylizans",
     ["wspinasz sie na .*dylizans\\.$"]               = "dylizans",
     -- same "Wchodzisz na .+" lapaloby tez drzewa, mury itp. (i gralo dzwiek)
     ["^Wchodzisz na (?:poklad .+|.*(?:statek|okret|prom|barke|barkasa|feluke|skeid|tratwe|bryg|drakkar|szkute|buzar|knare|galere|galeon|lodz|lodke|kog|karake|karawele|kuter))\\.$"] = "statek",
