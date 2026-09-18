@@ -1405,9 +1405,11 @@ Rozpoczyna prowadzenie wskazanej osoby po mapie.
 
 Kończy prowadzenie aktualnej osoby.
 
-## `podroz do <przystanek>`
+## `podroz do <przystanek> [<id lokacji>]`
 
-Czeka na dylizans lub statek (co pierwsze sie zatrzyma), wsiada (na statek: `wem`, `kup bilet`, `wsiadz na statek`, `wlm`) i wysiada, gdy lokalizator gps zamelduje lokacje zawierajaca podany fragment nazwy. Jesli postac juz jest w pojezdzie, tylko ustawia cel. Czekanie wygasa po 15 min, cel po 30 min.
+Czeka na dylizans lub statek (co pierwsze sie zatrzyma), wsiada (na statek: `wem`, `kup bilet`, `wsiadz na statek`, `wlm`) i wysiada, gdy lokalizator gps zamelduje lokacje zawierajaca podany fragment nazwy. Jesli pojazd juz stoi na lokacji (np. postac doszla na przystanek po wlaczeniu `podroz`), wsiada od razu - w trakcie chodzika opis lokacji jest pomijany, a po jego zakonczeniu wysylane jest `spojrz`. Jesli postac juz jest w pojezdzie, tylko ustawia cel. Czekanie wygasa po 15 min, cel po 30 min.
+
+Opcjonalne `<id lokacji>` (np. `podroz do Nuln 1234`) - po wysiadce uruchamia `/idz <id lokacji> 4`.
 
 ## `podroz stop`
 
