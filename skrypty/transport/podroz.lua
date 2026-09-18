@@ -267,16 +267,17 @@ local vehicle_lines = {
 }
 
 local aliases = {
-    ["^podroz do (.+)$"] = function()
+    -- "stop"/"stan" maja wlasne aliasy
+    ["^/podroz (?:do )?(?!(?:stop|stan)$)(.+)$"] = function()
         local legs = scripts.podroz:parse_legs(matches[2])
         if not legs then
-            print_log("<tomato>uzycie: podroz do <cel> [<id> <cel> ...] [<id>]")
+            print_log("<tomato>uzycie: /podroz [do] <cel> [<id> <cel> ...] [<id>]")
             return
         end
         scripts.podroz:start(legs)
     end,
-    ["^podroz stop$"]    = function() scripts.podroz:cancel() end,
-    ["^podroz stan$"]    = function() scripts.podroz:status() end,
+    ["^/podroz stop$"]   = function() scripts.podroz:cancel() end,
+    ["^/podroz stan$"]   = function() scripts.podroz:status() end,
 }
 
 local handlers = {
