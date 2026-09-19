@@ -1437,4 +1437,6 @@ Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyj
 
 ## `/paczka`
 
-Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka na mapie lokacji, ktorych pole `Paczki` zawiera to imie (bez wielkosci liter). Wypisuje klikalne `/idz <id lokacji>` dla kazdej znalezionej.
+Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek. Wypisuje klikalne `/idz <id lokacji>`.
+
+`npc.json` jest pobierany do katalogu profilu przy starcie skryptow, tylko jesli jeszcze go tam nie ma. Aby odswiezyc - usun plik i przeladuj skrypty.

@@ -1,33 +1,70 @@
 -- ============================================================
 --  /paczka - "ob paczke", adresat z napisu na paczce, lokacja
---  z pola "Paczki" (userData pokoju) na mapie -> "/idz <room_id>"
+--  z npc.json mapy (Delwing/arkadia-mapa) -> "/idz <room_id>"
+--  Zapas: baza asystenta paczek (scripts.packages).
 -- ============================================================
 
 scripts.packages.lookup = scripts.packages.lookup or {}
 local pl = scripts.packages.lookup
 
-local field = "Paczki"
+local npc_url = "https://delwing.github.io/arkadia-mapa/data/npc.json"
+local npc_file = getMudletHomeDir() .. "/npc.json"
 local timeout = 3
 
--- pokoje, ktorych pole "Paczki" zawiera imie (bez wielkosci liter)
+function pl:load()
+    local file = io.open(npc_file, "r")
+    if not file then return end
+    local ok, data = pcall(yajl.to_value, file:read("*a"))
+    file:close()
+    if ok and type(data) == "table" then
+        self.npc = data
+    else
+        scripts:print_log("Nie udalo sie wczytac " .. npc_file)
+    end
+end
+
+-- pobiera npc.json tylko, gdy nie ma go jeszcze na dysku
+function pl:fetch()
+    if io.exists(npc_file) then
+        self:load()
+        return
+    end
+    registerAnonymousEventHandler("sysDownloadDone", function(_, filename)
+        if filename ~= npc_file then return true end
+        pl:load()
+    end, true)
+    registerAnonymousEventHandler("sysDownloadError", function(_, err, filename)
+        if filename ~= npc_file then return true end
+        scripts:print_log("Nie udalo sie pobrac npc.json: " .. tostring(err))
+    end, true)
+    downloadFile(npc_file, npc_url)
+end
+
+-- lokacje npc o danym imieniu (bez wielkosci liter)
 function pl:find_rooms(name)
-    local needle = string.lower(name)
-    local rooms = {}
-    for _, value in pairs(searchRoomUserData(field) or {}) do
-        if string.find(string.lower(value), needle, 1, true) then
-            for _, room in pairs(searchRoomUserData(field, value) or {}) do
-                table.insert(rooms, tonumber(room))
-            end
+    local needle = string.lower(string.trim(name))
+    local rooms, seen = {}, {}
+    local function add(room)
+        room = tonumber(room)
+        if room and room ~= -1 and not seen[room] then
+            seen[room] = true
+            table.insert(rooms, room)
         end
     end
-    table.sort(rooms)
+    for _, npc in ipairs(self.npc or {}) do
+        if npc.name and string.lower(npc.name) == needle then add(npc.loc) end
+    end
+    if #rooms == 0 then
+        local match = scripts.packages:get_from_db(needle)
+        if match then add(match.room_id) end
+    end
     return rooms
 end
 
 function pl:show(name)
     local rooms = self:find_rooms(name)
     if #rooms == 0 then
-        scripts:print_log("Brak lokacji z '" .. name .. "' w polu " .. field .. " na mapie")
+        scripts:print_log("Nie znam lokacji adresata: " .. name)
         return
     end
     for _, room in ipairs(rooms) do
@@ -55,6 +92,7 @@ function pl:run()
 end
 
 function pl:init()
+    self:fetch()
     if self.alias then killAlias(self.alias) end
     self.alias = tempAlias("^/paczka$", function() pl:run() end)
 end
