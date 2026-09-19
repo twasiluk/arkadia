@@ -103,9 +103,11 @@ end
 function pl:run()
     self:clear()
     self:remember_post()
-    self.trigger = tempRegexTrigger("^Wypisano na niej duzymi literami: ([^,]+),(?:.*,)? *([^,.]+)\\.", function()
+    self.trigger = tempRegexTrigger("^Wypisano na niej duzymi literami: ([^,]+),(?:.*,)? *([^,]+)$", function()
         local name, city = matches[2], matches[3]
         pl:clear()
+        -- "NOVIGRAD." / "QUENELLES - PILNE!"
+        city = city:gsub("%s+%-%s+.*$", ""):gsub("[%.!%s]+$", "")
         city = string.trim(city):lower():gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end)
         pl:show(name)
         expandAlias("/trasa " .. city)
