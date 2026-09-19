@@ -96,6 +96,7 @@ return {
     "skrypty/utils/string",
     "skrypty/utils/automatic_tables",
     "skrypty/packages/assistant",
+    "skrypty/packages/paczka",
     "skrypty/inventory/pretty_containers",
     "skrypty/inventory/containers",
     "skrypty/inventory/equipment",

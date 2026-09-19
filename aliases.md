@@ -1434,3 +1434,7 @@ Wypisuje aktualny cel, pojazd i czy trwa czekanie.
 Szuka polaczenia statkami i dylizansami z przesiadkami. `<skad>` i `<dokad>` to nazwa (miasto, przystanek z lokalizatora gps, kraina, np. `Nuln`, `KZ`, `Wissenland`) albo id lokacji; bez `<skad>` - z aktualnej lokacji. Np. `/trasa Oxenfurt`, `/trasa Jouinard > Nuln`, `/trasa Nuln do 804`.
 
 Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz gotowa komende `/podroz <id przystanku startowego> ...` do przeklejenia. Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
+
+## `/paczka`
+
+Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka na mapie lokacji, ktorych pole `Paczki` zawiera to imie (bez wielkosci liter). Wypisuje klikalne `/idz <id lokacji>` dla kazdej znalezionej.
