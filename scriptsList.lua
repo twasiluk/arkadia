@@ -160,6 +160,7 @@ return {
     "skrypty/transport/transports",
     "skrypty/transport/ride",
     "skrypty/transport/podroz",
+    "skrypty/transport/smalltalk",
     "skrypty/transport/network",
     "skrypty/transport/trasa",
     "skrypty/utils/colors",
