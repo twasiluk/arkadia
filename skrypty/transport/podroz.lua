@@ -34,6 +34,19 @@ local function print_log(msg)
     cecho("\n<CadetBlue>(podroz)<reset>: " .. msg .. "\n")
 end
 
+-- losowa zwloka przed wsiadaniem i wysiadaniem (sekundy)
+local delay_min, delay_max = 3, 6
+
+function scripts.podroz:delayed(what, callback)
+    if self.delay_timer then killTimer(self.delay_timer) end
+    local delay = delay_min + math.random() * (delay_max - delay_min)
+    print_log(string.format("<DimGrey>%s za %.1f s", what, delay))
+    self.delay_timer = tempTimer(delay, function()
+        scripts.podroz.delay_timer = nil
+        callback()
+    end)
+end
+
 function scripts.podroz:matches(location)
     return location and self.target
         and location:lower():find(self.target:lower(), 1, true) ~= nil
@@ -93,12 +106,12 @@ end
 function scripts.podroz:gps(location)
     if not self.vehicle then return end
     if not self:matches(location) then return end
-    send(exit_commands[self.vehicle], false)
     print_log("<green>wysiadam - " .. location)
-    local walk_to, legs = self.walk_to, self.legs
+    local walk_to, legs, command = self.walk_to, self.legs, exit_commands[self.vehicle]
     self:cancel(true)
     self.pending_walk = walk_to
     self.pending_legs = walk_to and legs and #legs > 0 and legs or nil
+    self:delayed("wysiadka", function() send(command, false) end)
 end
 
 -- ---------- czekanie na srodek transportu ----------
@@ -141,7 +154,7 @@ function scripts.podroz:wait()
     for _, cfg in pairs(boarding) do
         local board = function()
             scripts.podroz:stop_waiting(true)
-            cfg.board()
+            scripts.podroz:delayed("wsiadanie", cfg.board)
         end
         table.insert(self.wait_triggers, tempRegexTrigger(cfg.pattern, board))
         table.insert(self.wait_triggers, tempRegexTrigger(cfg.parked, function()
@@ -165,14 +178,17 @@ end
 
 -- ---------- sterowanie ----------
 -- "Biala 6430 Nuln 6903 Kreutzhoffen" -> Biala (/idz 6430), Nuln (/idz 6903), Kreutzhoffen
+-- "6621 Biala ..." - najpierw /idz 6621, potem odcinki; zwraca legs, id poczatkowe
 local function is_room_id(word)
     return word:match("^%d+$") or (word:match("^i%w+$") and word:match("%d"))
 end
 
 function scripts.podroz:parse_legs(text)
-    local legs, words = {}, {}
+    local legs, words, first = {}, {}, nil
     for word in text:gmatch("%S+") do
-        if is_room_id(word) then
+        if is_room_id(word) and #words == 0 and #legs == 0 and not first then
+            first = word
+        elseif is_room_id(word) then
             if #words == 0 then return nil end
             table.insert(legs, { target = table.concat(words, " "), walk_to = word })
             words = {}
@@ -183,7 +199,8 @@ function scripts.podroz:parse_legs(text)
     if #words > 0 then
         table.insert(legs, { target = table.concat(words, " ") })
     end
-    return #legs > 0 and legs or nil
+    if #legs == 0 then return nil end
+    return legs, first
 end
 
 local function describe_legs(legs)
@@ -224,9 +241,22 @@ function scripts.podroz:start(legs)
     end
 end
 
+-- najpierw chodzik na przystanek, odcinki ruszaja po amapWalkerFinished
+function scripts.podroz:walk_then_start(room, legs)
+    self:cancel(true)
+    if room == tostring(amap.curr.id) or room == amap.curr.internal_id then
+        self:start(legs)
+        return
+    end
+    self.pending_legs, self.next_on_walk = legs, true
+    print_log("<green>najpierw /idz " .. room .. "<DimGrey>, potem: " .. describe_legs(legs))
+    expandAlias("/idz " .. room .. " 4", true)
+end
+
 function scripts.podroz:cancel(silent)
     self:stop_waiting(true)
     if self.timer then killTimer(self.timer); self.timer = nil end
+    if self.delay_timer then killTimer(self.delay_timer); self.delay_timer = nil end
     self.target = nil
     self.walk_to = nil
     self.legs = nil
@@ -269,12 +299,16 @@ local vehicle_lines = {
 local aliases = {
     -- "stop"/"stan" maja wlasne aliasy
     ["^/podroz (?:do )?(?!(?:stop|stan)$)(.+)$"] = function()
-        local legs = scripts.podroz:parse_legs(matches[2])
+        local legs, first = scripts.podroz:parse_legs(matches[2])
         if not legs then
-            print_log("<tomato>uzycie: /podroz [do] <cel> [<id> <cel> ...] [<id>]")
+            print_log("<tomato>uzycie: /podroz [do] [<id>] <cel> [<id> <cel> ...] [<id>]")
             return
         end
-        scripts.podroz:start(legs)
+        if first then
+            scripts.podroz:walk_then_start(first, legs)
+        else
+            scripts.podroz:start(legs)
+        end
     end,
     ["^/podroz stop$"]   = function() scripts.podroz:cancel() end,
     ["^/podroz stan$"]   = function() scripts.podroz:status() end,

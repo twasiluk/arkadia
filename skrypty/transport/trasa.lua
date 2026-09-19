@@ -3,7 +3,7 @@
 --  po sieci ze skrypty/transport/network.lua
 --
 --  /trasa [<skad> > | do] <dokad>  - skad/dokad: nazwa lub id lokacji,
---  bez <skad> = aktualna lokacja. Wypisuje odcinki i komendy /podroz.
+--  bez <skad> = aktualna lokacja. Wypisuje odcinki i komende /podroz.
 -- ============================================================
 
 scripts.trasa = scripts.trasa or {
@@ -234,21 +234,24 @@ function scripts.trasa:legs(edges, destination)
 end
 
 -- komendy /podroz; kolejny odcinek w tej samej komendzie tylko po dojsciu
--- chodzikiem (/podroz rusza dalej po amapWalkerFinished)
+-- chodzikiem (/podroz rusza dalej po amapWalkerFinished), dojscie na pierwszy
+-- przystanek jako id na poczatku (/podroz <id> <cel> ...)
 function scripts.trasa:podroz_commands(legs)
     local stops = scripts.transport_network.stops
     local commands, words = {}, {}
     local function flush()
-        if #words > 0 then table.insert(commands, "/podroz " .. table.concat(words, " ")) end
+        if #words == 1 and words[1]:match("^%d+$") then
+            table.insert(commands, "/idz " .. words[1])
+        elseif #words > 0 then
+            table.insert(commands, "/podroz " .. table.concat(words, " "))
+        end
         words = {}
     end
+    -- start z nazwy: nie wiadomo, gdzie stoi postac - id przystanku na poczatku
+    if legs[1] and legs[1].kind == "ride" then table.insert(words, tostring(legs[1].from)) end
     for i, leg in ipairs(legs) do
         if leg.kind == "walk" then
-            if #words > 0 then
-                table.insert(words, tostring(leg.to))
-            else
-                table.insert(commands, "/idz " .. leg.to)
-            end
+            table.insert(words, tostring(leg.to))
         else
             -- przesiadka bez chodzenia: /idz do biezacej lokacji nie konczy chodzika
             if legs[i - 1] and legs[i - 1].kind == "ride" then flush() end

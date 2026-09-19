@@ -1405,11 +1405,15 @@ Rozpoczyna prowadzenie wskazanej osoby po mapie.
 
 Kończy prowadzenie aktualnej osoby.
 
-## `/podroz [do] <przystanek> [<id lokacji> <przystanek> ...] [<id lokacji>]`
+## `/podroz [do] [<id lokacji>] <przystanek> [<id lokacji> <przystanek> ...] [<id lokacji>]`
 
 Czeka na dylizans lub statek (co pierwsze sie zatrzyma), wsiada (na statek: `wem`, `kup bilet`, `wsiadz na statek`, `wlm`) i wysiada, gdy lokalizator gps zamelduje lokacje zawierajaca podany fragment nazwy. Jesli pojazd juz stoi na lokacji (np. postac doszla na przystanek po wlaczeniu `/podroz`), wsiada od razu - w trakcie chodzika opis lokacji jest pomijany, a po jego zakonczeniu wysylane jest `spojrz`. Jesli postac juz jest w pojezdzie, tylko ustawia cel. Czekanie wygasa po 15 min, cel po 30 min.
 
-Opcjonalne `<id lokacji>` (np. `/podroz Nuln 1234`) - po wysiadce uruchamia `/idz <id lokacji> 4`.
+Wsiadanie i wysiadanie nastepuje z losowa zwloka 3-6 s.
+
+Opcjonalne `<id lokacji>` na poczatku (np. `/podroz 6621 Blekitna Wstega`) - najpierw `/idz <id lokacji> 4` na przystanek, czekanie na pojazd rusza po dojsciu (jesli postac juz tam stoi - od razu).
+
+Opcjonalne `<id lokacji>` po przystanku (np. `/podroz Nuln 1234`) - po wysiadce uruchamia `/idz <id lokacji> 4`.
 
 Kilka odcinkow: id lokacji oddzielaja kolejne cele, np. `/podroz Biala 6430 Nuln 6903 Kreutzhoffen` = `/podroz Biala 6430`, po dojsciu chodzikiem na 6430 `/podroz Nuln 6903`, po dojsciu na 6903 `/podroz Kreutzhoffen`. Przerwany chodzik mozna wznowic (`/idz` do tej samej lokacji) - nastepny odcinek ruszy po jego zakonczeniu. `/podroz stop` kasuje wszystkie odcinki.
 
@@ -1425,4 +1429,4 @@ Wypisuje aktualny cel, pojazd i czy trwa czekanie.
 
 Szuka polaczenia statkami i dylizansami z przesiadkami. `<skad>` i `<dokad>` to nazwa (miasto, przystanek z lokalizatora gps, kraina, np. `Nuln`, `KZ`, `Wissenland`) albo id lokacji; bez `<skad>` - z aktualnej lokacji. Np. `/trasa Oxenfurt`, `/trasa Jouinard > Nuln`, `/trasa Nuln do 804`.
 
-Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz gotowe komendy `/idz` i `/podroz` do przeklejenia. Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
+Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz gotowa komende `/podroz <id przystanku startowego> ...` do przeklejenia. Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
