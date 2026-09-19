@@ -3,7 +3,8 @@
 --  z npc.json mapy (Delwing/arkadia-mapa) -> "/idz <room_id>"
 --  Zapas: baza asystenta paczek (scripts.packages).
 --  Na poczcie (nazwa lokacji z "poczta") zapamietuje lokacje;
---  po "Oddajesz pocztowa paczke" wypisuje link powrotu.
+--  po "Oddajesz pocztowa paczke" wypisuje link powrotu i /trasa <miasto>
+--  (miasto = ostatni czlon adresu na paczce).
 -- ============================================================
 
 scripts.packages.lookup = scripts.packages.lookup or {}
@@ -99,12 +100,22 @@ function pl:show_post()
     echo("\n")
 end
 
+-- po oddaniu: link na poczte i /trasa do miasta adresata
+function pl:delivered()
+    self:show_post()
+    if self.city then
+        expandAlias("/trasa " .. self.city)
+        self.city = nil
+    end
+end
+
 function pl:run()
     self:clear()
     self:remember_post()
-    self.trigger = tempRegexTrigger("^Wypisano na niej duzymi literami: ([^,]+),", function()
-        local name = matches[2]
+    self.trigger = tempRegexTrigger("^Wypisano na niej duzymi literami: ([^,]+),(?:.*,)? *([^,.]+)\\.", function()
+        local name, city = matches[2], matches[3]
         pl:clear()
+        pl.city = string.trim(city):lower():gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end)
         pl:show(name)
     end, 1)
     self.timer = tempTimer(timeout, function() pl:clear() end)
@@ -116,7 +127,7 @@ function pl:init()
     if self.alias then killAlias(self.alias) end
     self.alias = tempAlias("^/paczka$", function() pl:run() end)
     if self.delivered_trigger then killTrigger(self.delivered_trigger) end
-    self.delivered_trigger = tempRegexTrigger("^Oddajesz pocztowa paczke", function() pl:show_post() end)
+    self.delivered_trigger = tempRegexTrigger("^Oddajesz pocztowa paczke", function() pl:delivered() end)
 end
 
 pl:init()
