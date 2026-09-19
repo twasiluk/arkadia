@@ -128,7 +128,7 @@ function pl:run()
         pl:clear()
         local rooms = pl:show(name)
         if city then
-            expandAlias("/trasa " .. city)
+            expandAlias("/trasa " .. city .. (#rooms == 1 and (" " .. rooms[1]) or ""))
         elseif #rooms == 1 then
             expandAlias("/trasa " .. rooms[1])
         end

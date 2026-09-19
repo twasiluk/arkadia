@@ -84,7 +84,7 @@ function scripts.podroz:left()
         -- zlapalby pojazd, z ktorego postac wlasnie wysiadla
         self.next_on_walk = self.pending_legs ~= nil
         -- chwila na ustawienie pozycji przez mapper
-        tempTimer(1, function() expandAlias("/idz " .. room .. " 4", true) end)
+        tempTimer(1, function() expandAlias("/gnaj " .. room .. " 4", true) end)
     end
 end
 
@@ -177,8 +177,8 @@ function scripts.podroz:stop_waiting(silent)
 end
 
 -- ---------- sterowanie ----------
--- "Biala 6430 Nuln 6903 Kreutzhoffen" -> Biala (/idz 6430), Nuln (/idz 6903), Kreutzhoffen
--- "6621 Biala ..." - najpierw /idz 6621, potem odcinki; zwraca legs, id poczatkowe
+-- "Biala 6430 Nuln 6903 Kreutzhoffen" -> Biala (/gnaj 6430), Nuln (/gnaj 6903), Kreutzhoffen
+-- "6621 Biala ..." - najpierw /gnaj 6621, potem odcinki; zwraca legs, id poczatkowe
 local function is_room_id(word)
     return word:match("^%d+$") or (word:match("^i%w+$") and word:match("%d"))
 end
@@ -221,7 +221,7 @@ function scripts.podroz:start(legs)
         scripts.podroz:cancel()
     end)
     local log_start = function()
-        print_log("<green>cel - " .. target .. (walk_to and (", potem /idz " .. walk_to) or "")
+        print_log("<green>cel - " .. target .. (walk_to and (", potem /gnaj " .. walk_to) or "")
             .. (#legs > 0 and ("<DimGrey>, dalej: " .. describe_legs(legs)) or ""))
         if scripts.podroz.wait_triggers then
             print_log("<DimGrey>czekam na dylizans lub statek...")
@@ -249,8 +249,8 @@ function scripts.podroz:walk_then_start(room, legs)
         return
     end
     self.pending_legs, self.next_on_walk = legs, true
-    print_log("<green>najpierw /idz " .. room .. "<DimGrey>, potem: " .. describe_legs(legs))
-    expandAlias("/idz " .. room .. " 4", true)
+    print_log("<green>najpierw /gnaj " .. room .. "<DimGrey>, potem: " .. describe_legs(legs))
+    expandAlias("/gnaj " .. room .. " 4", true)
 end
 
 function scripts.podroz:cancel(silent)

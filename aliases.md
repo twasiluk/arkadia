@@ -1415,11 +1415,11 @@ Czeka na dylizans lub statek (co pierwsze sie zatrzyma), wsiada (na statek: `wem
 
 Wsiadanie i wysiadanie nastepuje z losowa zwloka 3-6 s.
 
-Opcjonalne `<id lokacji>` na poczatku (np. `/podroz 6621 Blekitna Wstega`) - najpierw `/idz <id lokacji> 4` na przystanek, czekanie na pojazd rusza po dojsciu (jesli postac juz tam stoi - od razu).
+Opcjonalne `<id lokacji>` na poczatku (np. `/podroz 6621 Blekitna Wstega`) - najpierw `/gnaj <id lokacji> 4` na przystanek, czekanie na pojazd rusza po dojsciu (jesli postac juz tam stoi - od razu).
 
-Opcjonalne `<id lokacji>` po przystanku (np. `/podroz Nuln 1234`) - po wysiadce uruchamia `/idz <id lokacji> 4`.
+Opcjonalne `<id lokacji>` po przystanku (np. `/podroz Nuln 1234`) - po wysiadce uruchamia `/gnaj <id lokacji> 4`.
 
-Kilka odcinkow: id lokacji oddzielaja kolejne cele, np. `/podroz Biala 6430 Nuln 6903 Kreutzhoffen` = `/podroz Biala 6430`, po dojsciu chodzikiem na 6430 `/podroz Nuln 6903`, po dojsciu na 6903 `/podroz Kreutzhoffen`. Przerwany chodzik mozna wznowic (`/idz` do tej samej lokacji) - nastepny odcinek ruszy po jego zakonczeniu. `/podroz stop` kasuje wszystkie odcinki.
+Kilka odcinkow: id lokacji oddzielaja kolejne cele, np. `/podroz Biala 6430 Nuln 6903 Kreutzhoffen` = `/podroz Biala 6430`, po dojsciu chodzikiem na 6430 `/podroz Nuln 6903`, po dojsciu na 6903 `/podroz Kreutzhoffen`. Przerwany chodzik mozna wznowic (`/gnaj` lub `/idz` do tej samej lokacji) - nastepny odcinek ruszy po jego zakonczeniu. `/podroz stop` kasuje wszystkie odcinki.
 
 ## `/podroz stop`
 
@@ -1429,15 +1429,17 @@ Przerywa czekanie i podroz do celu.
 
 Wypisuje aktualny cel, pojazd i czy trwa czekanie.
 
-## `/trasa [<skad> > | <skad> do] <dokad>`
+## `/trasa [<skad> > | <skad> do] <dokad> [<id lokacji>]`
 
 Szuka polaczenia statkami i dylizansami z przesiadkami. `<skad>` i `<dokad>` to nazwa (miasto, przystanek z lokalizatora gps, kraina, np. `Nuln`, `KZ`, `Wissenland`) albo id lokacji; bez `<skad>` - z aktualnej lokacji. Np. `/trasa Oxenfurt`, `/trasa Jouinard > Nuln`, `/trasa Nuln do 804`.
+
+`<dokad> <id lokacji>` (np. `/trasa Montlac 7778`) - przystanki `<dokad>`, a na koniec pieszo do lokacji (bez limitu krokow); komenda `/podroz` konczy sie tym id.
 
 Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz klikalna komende `/podroz <id przystanku startowego> ...`. Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
 
 ## `/paczka`
 
-Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek, a na koniec wsrod nazw lokacji na mapie (adres bez przecinka, np. `POCZTA W JOUINARD`). Wypisuje klikalne `/idz <id lokacji>` i wykonuje `/trasa <miasto>` (miasto = ostatni czlon adresu, np. `..., ZNAWCA WIN, OXENFURT.`; bez przecinka - `/trasa <id lokacji>`). Dopisek ` - PILNE!` jest pomijany.
+Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek, a na koniec wsrod nazw lokacji na mapie (adres bez przecinka, np. `POCZTA W JOUINARD`). Wypisuje klikalne `/idz <id lokacji>` i wykonuje `/trasa <miasto> <id lokacji adresata>` (miasto = ostatni czlon adresu, np. `..., ZNAWCA WIN, OXENFURT.`; id tylko gdy lokacja jednoznaczna; bez przecinka - `/trasa <id lokacji>`). Dopisek ` - PILNE!` jest pomijany.
 
 Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje; po `Oddajesz pocztowa paczke` wypisuje klikalne `Poczta: /idz <id poczty>`.
 

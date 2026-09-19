@@ -2,8 +2,9 @@
 --  trasa - wyszukiwanie polaczen (statki, dylizansy) z przesiadkami
 --  po sieci ze skrypty/transport/network.lua
 --
---  /trasa [<skad> > | do] <dokad>  - skad/dokad: nazwa lub id lokacji,
---  bez <skad> = aktualna lokacja. Wypisuje odcinki i komende /podroz.
+--  /trasa [<skad> > | do] <dokad> [<id lokacji>] - skad/dokad: nazwa lub id
+--  lokacji, bez <skad> = aktualna lokacja; <dokad> <id> = przystanki <dokad>,
+--  potem pieszo do <id>. Wypisuje odcinki i komende /podroz.
 -- ============================================================
 
 scripts.trasa = scripts.trasa or {
@@ -144,6 +145,20 @@ function scripts.trasa:resolve(text, reverse)
     return nil
 end
 
+-- przystanki celu -> { [przystanek] = kroki do room }, room (bez limitu krokow)
+function scripts.trasa:walk_to(targets, room)
+    if not roomExists(room) then return nil end
+    local result
+    for stop in pairs(targets) do
+        local steps = stop == room and 0 or (getPath(stop, room) and #speedWalkPath)
+        if steps then
+            result = result or {}
+            result[stop] = steps
+        end
+    end
+    return result, room
+end
+
 -- ---------- wyszukiwanie ----------
 -- Dijkstra od wielu zrodel do wielu celow; zwraca liste krawedzi
 function scripts.trasa:find(sources, targets)
@@ -241,7 +256,7 @@ function scripts.trasa:podroz_commands(legs)
     local commands, words = {}, {}
     local function flush()
         if #words == 1 and words[1]:match("^%d+$") then
-            table.insert(commands, "/idz " .. words[1])
+            table.insert(commands, "/gnaj " .. words[1])
         elseif #words > 0 then
             table.insert(commands, "/podroz " .. table.concat(words, " "))
         end
@@ -253,7 +268,7 @@ function scripts.trasa:podroz_commands(legs)
         if leg.kind == "walk" then
             table.insert(words, tostring(leg.to))
         else
-            -- przesiadka bez chodzenia: /idz do biezacej lokacji nie konczy chodzika
+            -- przesiadka bez chodzenia: /gnaj do biezacej lokacji nie konczy chodzika
             if legs[i - 1] and legs[i - 1].kind == "ride" then flush() end
             local gps = stops[leg.to].gps
             if gps then
@@ -289,8 +304,16 @@ function scripts.trasa:show(from_text, to_text)
     end
     local sources, from_label, from_room = self:resolve(from_text)
     if not sources then return print_log("<tomato>nie znam miejsca: " .. from_text) end
+    -- "<miasto> <id lokacji>": przystanki miasta, potem pieszo do lokacji
+    local city, destination = to_text:match("^(.-)%s+(%d+)$")
+    if city and not city:match("^%d*$") then to_text = city else destination = nil end
     local targets, to_label, to_room = self:resolve(to_text, true)
     if not targets then return print_log("<tomato>nie znam miejsca: " .. to_text) end
+    if destination then
+        targets, to_room = self:walk_to(targets, tonumber(destination))
+        if not targets then return print_log("<tomato>nie ma przejscia z " .. to_label .. " do " .. destination) end
+        to_label = to_label .. " " .. destination
+    end
     if not next(sources) then return print_log("<tomato>brak przystanku w zasiegu " .. from_text) end
     if not next(targets) then return print_log("<tomato>brak przystanku w zasiegu " .. to_text) end
 
