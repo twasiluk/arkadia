@@ -1437,7 +1437,7 @@ Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyj
 
 ## `/paczka`
 
-Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek. Wypisuje klikalne `/idz <id lokacji>` i wykonuje `/trasa <miasto>` (miasto = ostatni czlon adresu, np. `..., ZNAWCA WIN, OXENFURT.`).
+Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek, a na koniec wsrod nazw lokacji na mapie (adres bez przecinka, np. `POCZTA W JOUINARD`). Wypisuje klikalne `/idz <id lokacji>` i wykonuje `/trasa <miasto>` (miasto = ostatni czlon adresu, np. `..., ZNAWCA WIN, OXENFURT.`; bez przecinka - `/trasa <id lokacji>`). Dopisek ` - PILNE!` jest pomijany.
 
 Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje; po `Oddajesz pocztowa paczke` wypisuje klikalne `Poczta: /idz <id poczty>`.
 

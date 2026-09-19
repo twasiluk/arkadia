@@ -43,7 +43,8 @@ function pl:fetch()
     downloadFile(npc_file, npc_url)
 end
 
--- lokacje npc o danym imieniu (bez wielkosci liter)
+-- lokacje npc o danym imieniu (bez wielkosci liter); zapas: baza asystenta,
+-- nazwa lokacji na mapie (adres bez przecinka, np. "POCZTA W JOUINARD")
 function pl:find_rooms(name)
     local needle = string.lower(string.trim(name))
     local rooms, seen = {}, {}
@@ -61,6 +62,10 @@ function pl:find_rooms(name)
         local match = scripts.packages:get_from_db(needle)
         if match then add(match.room_id) end
     end
+    if #rooms == 0 then
+        for room in pairs(searchRoom(name, false, true) or {}) do add(room) end
+        table.sort(rooms)
+    end
     return rooms
 end
 
@@ -68,7 +73,7 @@ function pl:show(name)
     local rooms = self:find_rooms(name)
     if #rooms == 0 then
         scripts:print_log("Nie znam lokacji adresata: " .. name)
-        return
+        return rooms
     end
     for _, room in ipairs(rooms) do
         local cmd = "/idz " .. room
@@ -76,6 +81,21 @@ function pl:show(name)
         scripts:print_url("<light_slate_blue>" .. cmd, function() expandAlias(cmd) end, name)
     end
     echo("\n")
+    return rooms
+end
+
+local function title_case(text)
+    return (string.trim(text):lower():gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end))
+end
+
+-- "IMIE, [FUNKCJA,] MIASTO." / "... - PILNE!" / "POCZTA W JOUINARD"
+-- -> imie (lub nazwa miejsca), miasto (nil bez przecinka)
+function pl:parse_address(text)
+    text = text:gsub("%s+%-%s+.*$", ""):gsub("[%.!%s]+$", "")
+    local parts = string.split(text, ",")
+    local name = string.trim(parts[1])
+    local city = #parts > 1 and title_case(parts[#parts]) or nil
+    return name, city
 end
 
 function pl:clear()
@@ -103,14 +123,15 @@ end
 function pl:run()
     self:clear()
     self:remember_post()
-    self.trigger = tempRegexTrigger("^Wypisano na niej duzymi literami: ([^,]+),(?:.*,)? *([^,]+)$", function()
-        local name, city = matches[2], matches[3]
+    self.trigger = tempRegexTrigger("^Wypisano na niej duzymi literami: (.+)$", function()
+        local name, city = pl:parse_address(matches[2])
         pl:clear()
-        -- "NOVIGRAD." / "QUENELLES - PILNE!"
-        city = city:gsub("%s+%-%s+.*$", ""):gsub("[%.!%s]+$", "")
-        city = string.trim(city):lower():gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end)
-        pl:show(name)
-        expandAlias("/trasa " .. city)
+        local rooms = pl:show(name)
+        if city then
+            expandAlias("/trasa " .. city)
+        elseif #rooms == 1 then
+            expandAlias("/trasa " .. rooms[1])
+        end
     end, 1)
     self.timer = tempTimer(timeout, function() pl:clear() end)
     send("ob paczke")
