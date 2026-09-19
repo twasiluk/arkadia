@@ -1420,3 +1420,9 @@ Przerywa czekanie i podroz do celu.
 ## `/podroz stan`
 
 Wypisuje aktualny cel, pojazd i czy trwa czekanie.
+
+## `/trasa [<skad> > | <skad> do] <dokad>`
+
+Szuka polaczenia statkami i dylizansami z przesiadkami. `<skad>` i `<dokad>` to nazwa (miasto, przystanek z lokalizatora gps, kraina, np. `Nuln`, `KZ`, `Wissenland`) albo id lokacji; bez `<skad>` - z aktualnej lokacji. Np. `/trasa Oxenfurt`, `/trasa Jouinard > Nuln`, `/trasa Nuln do 804`.
+
+Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz gotowe komendy `/idz` i `/podroz` do przeklejenia. Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
