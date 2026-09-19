@@ -345,15 +345,20 @@ function scripts.trasa:show(from_text, to_text)
     if unverified then
         cecho(" <orange>*<reset> <DimGrey>kolejnosc przystankow niezweryfikowana<reset>\n")
     end
+    local commands = {}
     if rides > 0 then
-        for _, command in ipairs(self:podroz_commands(legs)) do
-            if command:sub(1, 1) == "/" then
-                echo(" ")
-                cechoLink("<cyan>" .. command .. "<reset>", function() expandAlias(command) end, command, true)
-                echo("\n")
-            else
-                cecho(" <cyan>" .. command .. "<reset>\n")
-            end
+        commands = self:podroz_commands(legs)
+    elseif legs[#legs] and legs[#legs].to then
+        -- bez pojazdu: sam chodzik do celu
+        commands = { "/gnaj " .. legs[#legs].to }
+    end
+    for _, command in ipairs(commands) do
+        if command:sub(1, 1) == "/" then
+            echo(" ")
+            cechoLink("<cyan>" .. command .. "<reset>", function() expandAlias(command) end, command, true)
+            echo("\n")
+        else
+            cecho(" <cyan>" .. command .. "<reset>\n")
         end
     end
 end

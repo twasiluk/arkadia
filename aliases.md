@@ -1435,7 +1435,7 @@ Szuka polaczenia statkami i dylizansami z przesiadkami. `<skad>` i `<dokad>` to 
 
 `<dokad> <id lokacji>` (np. `/trasa Montlac 7778`) - przystanki `<dokad>`, a na koniec pieszo do lokacji (bez limitu krokow); komenda `/podroz` konczy sie tym id.
 
-Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz klikalna komende `/podroz <id przystanku startowego> ...`. Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
+Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz klikalna komende `/podroz <id przystanku startowego> ...` (trasa bez pojazdu - `/gnaj <id celu>`). Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
 
 ## `/paczka`
 
