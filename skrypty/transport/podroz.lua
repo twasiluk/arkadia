@@ -126,12 +126,24 @@ end
 -- ---------- czekanie na srodek transportu ----------
 -- pattern - pojazd podjezdza/przybija
 -- parked  - pojazd juz stoi na lokacji (linia z przedmiotami przy wejsciu / spojrz)
+-- board(line) - linia, ktora zlapal pattern/parked (woz i powoz maja inna
+-- komende wsiadania niz dylizans)
 local boarding = {
+    -- woz i powoz jezdza jak dylizans (to samo "wyjscie" i wnetrze bez mapy)
     dylizans = {
-        pattern = "dylizans powoli zatrzymuje sie",
-        parked = "[A-Za-z]+ stojacy dylizans",
-        board = function()
-            send("wejdz do dylizansu")
+        pattern = "(?:dylizans|woz) powoli zatrzymuje sie|^(?:Woz|Powoz) cicho skrzypiac zatrzymuje sie",
+        -- "Kupiecki stojacy woz powoli rusza w droge" to odjazd, nie postoj
+        parked = "[A-Za-z]+ stojacy (?:dylizans|(?:po)?woz)(?!.* rusza)",
+        board = function(line)
+            local lower = line:lower()
+            local vehicle = lower:match("powoz") and "powozu" or lower:match("woz") and "wozu"
+            if not vehicle then
+                send("wejdz do dylizansu")
+                return
+            end
+            expandAlias("wem", true)    -- wez monety z sakiewki
+            send("wsiadz do " .. vehicle)
+            expandAlias("wlm", true)    -- wloz monety z powrotem
         end,
     },
     statek = {
@@ -141,7 +153,7 @@ local boarding = {
             .. "|Smukly drakkar|Mala feluka|Stary buzar|Smukly (?:majestatyczny )?bryg"
             .. "|Nieduzy barkas|Nieduza rzeczna barka|Wielka galera|Dluga niezgrabna barka"
             .. "|Plaskodenny skeid)(?:\\.|,| i )",
-        board = function()
+        board = function(_)
             expandAlias("wem", true)    -- wez monety z sakiewki
             send("kup bilet")
             send("wsiadz na statek")
@@ -162,8 +174,9 @@ function scripts.podroz:wait()
     self.wait_triggers = {}
     for vehicle, cfg in pairs(boarding) do
         local board = function()
+            local seen = line
             scripts.podroz:stop_waiting(true)
-            scripts.podroz:delayed("wsiadanie", cfg.board, "boarded", vehicle)
+            scripts.podroz:delayed("wsiadanie", function() cfg.board(seen) end, "boarded", vehicle)
         end
         table.insert(self.wait_triggers, tempRegexTrigger(cfg.pattern, board))
         table.insert(self.wait_triggers, tempRegexTrigger(cfg.parked, function()
@@ -233,7 +246,7 @@ function scripts.podroz:start(legs)
         print_log("<green>cel - " .. target .. (walk_to and (", potem /gnaj " .. walk_to) or "")
             .. (#legs > 0 and ("<DimGrey>, dalej: " .. describe_legs(legs)) or ""))
         if scripts.podroz.wait_triggers then
-            print_log("<DimGrey>czekam na dylizans lub statek...")
+            print_log("<DimGrey>czekam na dylizans, woz lub statek...")
         end
     end
     if self.vehicle then
