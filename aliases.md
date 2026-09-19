@@ -1433,10 +1433,12 @@ Wypisuje aktualny cel, pojazd i czy trwa czekanie.
 
 Szuka polaczenia statkami i dylizansami z przesiadkami. `<skad>` i `<dokad>` to nazwa (miasto, przystanek z lokalizatora gps, kraina, np. `Nuln`, `KZ`, `Wissenland`) albo id lokacji; bez `<skad>` - z aktualnej lokacji. Np. `/trasa Oxenfurt`, `/trasa Jouinard > Nuln`, `/trasa Nuln do 804`.
 
-Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz gotowa komende `/podroz <id przystanku startowego> ...` do przeklejenia. Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
+Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyjnym czasem oraz klikalna komende `/podroz <id przystanku startowego> ...`. Trasy oznaczone `*` maja kolejnosc przystankow wzieta z lokalizatora - do weryfikacji. Dane sieci: `skrypty/transport/network.lua`.
 
 ## `/paczka`
 
 Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek. Wypisuje klikalne `/idz <id lokacji>`.
+
+Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje; po `Oddajesz pocztowa paczke` wypisuje klikalne `Poczta: /idz <id poczty>`.
 
 `npc.json` jest pobierany do katalogu profilu przy starcie skryptow, tylko jesli jeszcze go tam nie ma. Aby odswiezyc - usun plik i przeladuj skrypty.

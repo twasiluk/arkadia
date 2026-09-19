@@ -324,7 +324,13 @@ function scripts.trasa:show(from_text, to_text)
     end
     if rides > 0 then
         for _, command in ipairs(self:podroz_commands(legs)) do
-            cecho(" <cyan>" .. command .. "<reset>\n")
+            if command:sub(1, 1) == "/" then
+                echo(" ")
+                cechoLink("<cyan>" .. command .. "<reset>", function() expandAlias(command) end, command, true)
+                echo("\n")
+            else
+                cecho(" <cyan>" .. command .. "<reset>\n")
+            end
         end
     end
 end
