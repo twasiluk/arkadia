@@ -49,6 +49,7 @@ return {
     "skrypty/conversation",
     "skrypty/boxes",
     "mapper/gates",
+    "mapper/gates_walk",
     "mapper/starters",
     "mapper/directions-ui",
     "mapper/pausers",

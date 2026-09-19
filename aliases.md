@@ -989,6 +989,10 @@ Wyznacza ścieżkę do lokacji o podanym ID.
 
 Planowo rozpoczyna marsz do lokacji po upływie określonego czasu.
 
+
+## `/gnaj <ID|skrót> [<opóźnienie>]`
+
+Jak `/idz`, ale przed przejściem przez bramę (krok między dwoma lokacjami oznaczonymi na mapie jako brama) wysyła komendę otwarcia (np. `uderz w brame`) i czeka losowo 1-3 s. Bez automatycznego ponawiania - jeśli brama się nie otworzy, działa zwykły keybind otwierania bramy.
 ## `/dalej`
 
 Kontynuuje wykonywanie wcześniej przygotowanej ścieżki.
