@@ -17,7 +17,7 @@ scripts.trasa.config = {
     board_wait = 120,      -- czekanie na pojazd (kara za kazde wsiadanie)
     ride_default = 60,     -- odcinek bez znanego czasu
     transfer_steps = 30,   -- max krokow pieszo miedzy przystankami
-    access_steps = 60,     -- max krokow z/do lokacji spoza sieci
+    access_steps = 40,     -- max krokow z/do lokacji spoza sieci
 }
 
 local function print_log(msg)
