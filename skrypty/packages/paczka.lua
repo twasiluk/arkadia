@@ -1,10 +1,10 @@
 -- ============================================================
 --  /paczka - "ob paczke", adresat z napisu na paczce, lokacja
---  z npc.json mapy (Delwing/arkadia-mapa) -> "/idz <room_id>"
+--  z npc.json mapy (Delwing/arkadia-mapa) -> "/gnaj <room_id>"
 --  Zapas: baza asystenta paczek (scripts.packages).
 --  Na poczcie (nazwa lokacji z "poczta") zapamietuje lokacje;
 --  po "Oddajesz pocztowa paczke" wypisuje link powrotu.
---  Po /idz wykonuje /trasa <miasto> (ostatni czlon adresu na paczce).
+--  Po /gnaj wykonuje /trasa <miasto> (ostatni czlon adresu na paczce).
 -- ============================================================
 
 scripts.packages.lookup = scripts.packages.lookup or {}
@@ -76,7 +76,7 @@ function pl:show(name)
         return rooms
     end
     for _, room in ipairs(rooms) do
-        local cmd = "/idz " .. room
+        local cmd = "/gnaj " .. room
         echo("\n")
         scripts:print_url("<light_slate_blue>" .. cmd, function() expandAlias(cmd) end, name)
     end
@@ -114,7 +114,7 @@ end
 
 function pl:show_post()
     if not self.post_room then return end
-    local cmd = "/idz " .. self.post_room
+    local cmd = "/gnaj " .. self.post_room
     echo("\n")
     scripts:print_url("<light_slate_blue>Poczta: " .. cmd, function() expandAlias(cmd) end, getRoomName(self.post_room) or cmd)
     echo("\n")
