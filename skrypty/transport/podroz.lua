@@ -37,8 +37,16 @@ end
 -- losowa zwloka przed wsiadaniem i wysiadaniem (sekundy)
 local delay_min, delay_max = 3, 6
 
-function scripts.podroz:delayed(what, callback)
+-- dzwiek wsiadania/wysiadki gra po sound_delay od przyjazdu/meldunku celu,
+-- nie dopiero po zwloce; event (podrozBoarded/podrozLeft) go wtedy nie powtarza
+local sound_delay, sound_skip = 0.3, 30
+
+function scripts.podroz:delayed(what, callback, kind, vehicle)
     if self.delay_timer then killTimer(self.delay_timer) end
+    if kind and vehicle then
+        self.early_sound = { kind = kind, time = os.time() }
+        tempTimer(sound_delay, function() scripts.podroz:play(kind, vehicle) end)
+    end
     local delay = delay_min + math.random() * (delay_max - delay_min)
     print_log(string.format("<DimGrey>%s za %.1f s", what, delay))
     self.delay_timer = tempTimer(delay, function()
@@ -107,11 +115,12 @@ function scripts.podroz:gps(location)
     if not self.vehicle then return end
     if not self:matches(location) then return end
     print_log("<green>wysiadam - " .. location)
-    local walk_to, legs, command = self.walk_to, self.legs, exit_commands[self.vehicle]
+    local vehicle = self.vehicle
+    local walk_to, legs, command = self.walk_to, self.legs, exit_commands[vehicle]
     self:cancel(true)
     self.pending_walk = walk_to
     self.pending_legs = walk_to and legs and #legs > 0 and legs or nil
-    self:delayed("wysiadka", function() send(command, false) end)
+    self:delayed("wysiadka", function() send(command, false) end, "left", vehicle)
 end
 
 -- ---------- czekanie na srodek transportu ----------
@@ -151,10 +160,10 @@ local wait_timeout = 900
 function scripts.podroz:wait()
     self:stop_waiting(true)
     self.wait_triggers = {}
-    for _, cfg in pairs(boarding) do
+    for vehicle, cfg in pairs(boarding) do
         local board = function()
             scripts.podroz:stop_waiting(true)
-            scripts.podroz:delayed("wsiadanie", cfg.board)
+            scripts.podroz:delayed("wsiadanie", cfg.board, "boarded", vehicle)
         end
         table.insert(self.wait_triggers, tempRegexTrigger(cfg.pattern, board))
         table.insert(self.wait_triggers, tempRegexTrigger(cfg.parked, function()
@@ -277,6 +286,16 @@ function scripts.podroz:status()
 end
 
 -- ---------- dzwieki ----------
+-- z eventu: pomin, jesli ten dzwiek juz zagral przy przyjezdzie/meldunku
+function scripts.podroz:play_event(kind, vehicle)
+    local early = self.early_sound
+    if early and early.kind == kind and os.time() - early.time <= sound_skip then
+        self.early_sound = nil
+        return
+    end
+    self:play(kind, vehicle)
+end
+
 function scripts.podroz:play(kind, vehicle)
     local file = sounds[kind][vehicle]
     if not file then return end
@@ -326,8 +345,8 @@ local handlers = {
             send("spojrz", false)
         end
     end,
-    podrozBoarded   = function(_, vehicle) scripts.podroz:play("boarded", vehicle) end,
-    podrozLeft      = function(_, vehicle) scripts.podroz:play("left", vehicle) end,
+    podrozBoarded   = function(_, vehicle) scripts.podroz:play_event("boarded", vehicle) end,
+    podrozLeft      = function(_, vehicle) scripts.podroz:play_event("left", vehicle) end,
 }
 
 function scripts.podroz:init()
