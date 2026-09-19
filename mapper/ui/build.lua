@@ -19,30 +19,18 @@ function compass_click(dir)
 end
 
 function compass_on_enter(dir)
-    if dir then
-        if dir == "special1" then
-            amap.ui.compass["button_" .. dir]:setStyleSheet(amap.ui["hover_button"])
-        elseif dir == "special2" then
-            amap.ui.compass["button_" .. dir]:setStyleSheet(amap.ui["hover_button"])
-        elseif dir == "special3" then
-            amap.ui.compass["button_" .. dir]:setStyleSheet(amap.ui["hover_button"])
-        else
-            amap.ui.compass["button_" .. dir]:setStyleSheet(amap.ui["hover_button"])
-        end
+    -- po /reload etykiety zostaja, a amap.ui.compass jest tworzony od nowa bez przyciskow
+    local button = dir and amap.ui.compass["button_" .. dir]
+    if button then
+        button:setStyleSheet(amap.ui["hover_button"])
     end
 end
 
 function compass_on_leave(dir)
-    if dir then
-        if dir == "special1" then
-            amap.ui.compass["button_" .. dir]:setStyleSheet(amap.ui["normal_button"])
-        elseif dir == "special2" then
-            amap.ui.compass["button_" .. dir]:setStyleSheet(amap.ui["normal_button"])
-        elseif dir == "special3" then
-            amap.ui.compass["button_" .. dir]:setStyleSheet(amap.ui["normal_button"])
-        else
-            amap.ui.compass["button_" .. dir]:setStyleSheet(amap.ui["normal_button"])
-        end
+    -- po /reload etykiety zostaja, a amap.ui.compass jest tworzony od nowa bez przyciskow
+    local button = dir and amap.ui.compass["button_" .. dir]
+    if button then
+        button:setStyleSheet(amap.ui["normal_button"])
     end
 end
 
