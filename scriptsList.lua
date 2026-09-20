@@ -158,6 +158,7 @@ return {
     "skrypty/misc/misc_load_dump",
     "skrypty/misc/compare_with_everyone",
     "skrypty/misc/helper",
+    "skrypty/misc/map_patch",
     "skrypty/transport/transports",
     "skrypty/transport/ride",
     "skrypty/transport/podroz",

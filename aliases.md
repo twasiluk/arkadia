@@ -817,6 +817,12 @@ Wczytuje mapę z pliku do mappera.
 
 Zapisuje bieżący stan mapy na dysku.
 
+## `/map_patch`
+
+Nakłada ponownie lokalne poprawki lokacji z `skrypty/misc/map_patch.lua` i wypisuje, ile lokacji poprawiono oraz których id nie ma na mapie.
+
+Poprawki są nakładane automatycznie po każdym załadowaniu mapy (start profilu, `/zaladuj_mape`, pobranie nowej wersji mapy), więc ta komenda przydaje się tylko po ręcznej zmianie pliku w trakcie sesji. Wpisy kluczuje się id mudletowym lub stabilnym id wewnętrznym (`i...`); ustawić można klucze userData lokacji (`gate`, `note`, `bind`, `walk_pre_cmd`, `walk_post_cmd`, `dir_bind`, `drinkable`, `description`, `gps`, `team_follow_link`) oraz `weight`, `lock`, `env` i `name`. Poprawki żyją tylko w pamięci - mapa z repozytorium `arkadia-mapa` ich nie zawiera.
+
 ## `/pobierz_baze`
 
 Pobiera aktualną bazę osób wykorzystywaną przez moduł `people`.
