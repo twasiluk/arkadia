@@ -212,6 +212,7 @@ end
 function sz.stop(msg)
     for _, id in ipairs(sz.handlers or {}) do killAnonymousEventHandler(id) end
     sz.handlers = nil
+    sz.sloik_pending = nil
     sz.clear_search()
     if sz.sloik_trigger then killTrigger(sz.sloik_trigger); sz.sloik_trigger = nil end
     if msg then log("sz", msg) end
@@ -300,6 +301,15 @@ function sz.clear_search()
     if sz.timer then killTimer(sz.timer); sz.timer = nil end
 end
 
+-- koniec szukania: sprzatnij triggery i odpal sloik, jesli czekal na ten moment
+function sz.search_done()
+    sz.clear_search()
+    if sz.sloik_pending then
+        sz.sloik_pending = nil
+        scripts.helper.run_sloik()
+    end
+end
+
 -- done - co zrobic po linii konca szukania (domyslnie: postoj i ruch dalej)
 function sz.szukaj(done)
     done = done or sz.searched
@@ -316,7 +326,7 @@ end
 -- po skonczonym szukaniu: losowy postoj, potem sloik (co SLOIK_CO pol) i ruch dalej
 function sz.searched()
     if not sz.handlers then return end
-    sz.clear_search()
+    sz.search_done()
     local delay = SZ_DELAY_MIN + math.random() * (SZ_DELAY_MAX - SZ_DELAY_MIN)
     sz.timer = tempTimer(delay, function()
         sz.timer = nil
@@ -341,7 +351,7 @@ function sz.start_alias(args)
     if not args then
         sz.sound_start()
         sz.szukaj(function()
-            sz.clear_search()
+            sz.search_done()
             stopSounds()
         end)
         return
@@ -415,10 +425,20 @@ end
 --  sloik - przelozenie zebranych ziol do sloika
 -- ============================================================
 
-function scripts.helper.sloik_alias()
+function scripts.helper.run_sloik()
     send("otworz sloik")
     tempTimer(1.5, function() send("wloz ziola do sloika") end)
     tempTimer(2.1, function() send("zamknij sloik") end)
+end
+
+-- w trakcie "szukaj ziol" sloik czeka na linie konca szukania
+function scripts.helper.sloik_alias()
+    if sz.search_triggers then
+        sz.sloik_pending = true
+        log("sloik", "<DimGrey>czekam na koniec szukania ziol")
+        return
+    end
+    scripts.helper.run_sloik()
 end
 
 -- ============================================================
