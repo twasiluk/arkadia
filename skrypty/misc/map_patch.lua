@@ -11,6 +11,9 @@
 --  Poprawki zyja tylko w pamieci. /zapisz_mape wypali je w lokalny plik,
 --  ale i tak zniknie on przy nastepnej wersji mapy.
 --
+--  Poprawki wchodza same: na starcie profilu, po /zaladuj_mape i po
+--  pobraniu nowej wersji mapy.
+--
 --  /map_patch - naklada poprawki ponownie i wypisuje, co zrobil
 -- ============================================================
 
@@ -60,7 +63,20 @@ local function resolve(key)
     return nil
 end
 
+local function map_loaded()
+    return next(getRooms() or {}) ~= nil
+end
+
+-- zwraca liczbe poprawionych lokacji albo nil, gdy mapy jeszcze nie ma
 function scripts.map_patch:apply(verbose)
+    if next(patches) == nil then
+        if verbose then log("<DimGrey>brak poprawek w pliku") end
+        return 0
+    end
+    if not map_loaded() then
+        if verbose then log("<tomato>mapa nie jest zaladowana") end
+        return nil
+    end
     local applied, missing = 0, {}
     for key, props in pairs(patches) do
         local id = resolve(key)
@@ -108,6 +124,29 @@ function amap:init_map_data()
     scripts.map_patch:apply()
 end
 
+-- ============================================================
+--  Start profilu
+--
+--  Na starcie mapa bywa jeszcze niezaładowana, gdy skrypty juz stoja,
+--  wiec zamiast jednego podejscia probujemy, az pojawia sie lokacje.
+--  Bez tego wszystkie id poszlyby w raport jako "brak na mapie".
+-- ============================================================
+local retry_delay, retry_max = 1, 15
+
+function scripts.map_patch:apply_when_ready(attempt)
+    if self.retry_timer then killTimer(self.retry_timer); self.retry_timer = nil end
+    if self:apply() then return end
+    attempt = (attempt or 0) + 1
+    if attempt > retry_max then
+        log("<tomato>mapa nie zaladowala sie - poprawki nie sa nalozone, uzyj /map_patch")
+        return
+    end
+    self.retry_timer = tempTimer(retry_delay, function()
+        scripts.map_patch.retry_timer = nil
+        scripts.map_patch:apply_when_ready(attempt)
+    end)
+end
+
 function scripts.map_patch:init()
     for _, id in ipairs(self.aliases) do killAlias(id) end
     self.aliases = {}
@@ -115,10 +154,13 @@ function scripts.map_patch:init()
         scripts.map_patch:apply(true)
     end))
 
-    -- przeladowanie pliku w trakcie sesji - mapa juz stoi w pamieci
-    if next(getRooms() or {}) then
-        self:apply()
-    end
+    -- start profilu (sysLoadEvent leci takze przy przeladowaniu profilu)
+    self.load_handler = scripts.event_register:force_register_event_handler(
+        self.load_handler, "sysLoadEvent",
+        function() scripts.map_patch:apply_when_ready() end, true)
+
+    -- przeladowanie samego pliku w trakcie sesji - sysLoadEvent juz byl
+    self:apply_when_ready()
 end
 
 scripts.map_patch:init()
