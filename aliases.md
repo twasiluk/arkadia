@@ -1439,7 +1439,7 @@ Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyj
 
 ## `/paczka`
 
-Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek, a na koniec wsrod nazw lokacji na mapie (adres bez przecinka, np. `POCZTA W JOUINARD`). Wypisuje klikalne `/gnaj <id lokacji>` i wykonuje `/trasa <miasto> <id lokacji adresata>` (miasto = ostatni czlon adresu, np. `..., ZNAWCA WIN, OXENFURT.`; id tylko gdy lokacja jednoznaczna; bez przecinka - `/trasa <id lokacji>`). Dopisek ` - PILNE!` jest pomijany.
+Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek, a na koniec wsrod nazw lokacji na mapie (adres bez przecinka, np. `POCZTA W JOUINARD`). Wypisuje klikalne `/gnaj <id lokacji>` i wykonuje `/trasa <miasto> <id lokacji adresata>` (miasto = ostatni czlon adresu, np. `..., ZNAWCA WIN, OXENFURT.`; id tylko gdy lokacja jednoznaczna; bez przecinka - `/trasa <id lokacji>`). Gdy adresat jest blizej niz 20 krokow pieszo od aktualnej lokacji, zamiast `/trasa` wykonuje od razu `/gnaj <id lokacji>` (przy kilku pasujacych lokacjach - najblizsza). Dopisek ` - PILNE!` jest pomijany.
 
 Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje; po `Oddajesz pocztowa paczke` wypisuje klikalne `Poczta: /gnaj <id poczty>`.
 

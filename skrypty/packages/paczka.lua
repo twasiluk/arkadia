@@ -13,6 +13,7 @@ local pl = scripts.packages.lookup
 local npc_url = "https://delwing.github.io/arkadia-mapa/data/npc.json"
 local npc_file = getMudletHomeDir() .. "/npc.json"
 local timeout = 3
+local walk_limit = 20   -- mniej krokow pieszo niz tyle -> od razu /gnaj zamiast /trasa
 
 function pl:load()
     local file = io.open(npc_file, "r")
@@ -84,6 +85,21 @@ function pl:show(name)
     return rooms
 end
 
+-- najblizsza z lokacji w zasiegu pieszo (mniej niz walk_limit krokow)
+-- zwraca room_id i liczbe krokow, albo nil
+function pl:nearest_walk(rooms)
+    local from = amap and amap.curr and amap.curr.id
+    if not from or from == -1 then return nil end
+    local best, best_steps
+    for _, room in ipairs(rooms) do
+        local steps = room == from and 0 or (getPath(from, room) and #speedWalkPath)
+        if steps and steps < walk_limit and (not best_steps or steps < best_steps) then
+            best, best_steps = room, steps
+        end
+    end
+    return best, best_steps
+end
+
 local function title_case(text)
     return (string.trim(text):lower():gsub("(%a)(%w*)", function(a, b) return a:upper() .. b end))
 end
@@ -127,7 +143,11 @@ function pl:run()
         local name, city = pl:parse_address(matches[2])
         pl:clear()
         local rooms = pl:show(name)
-        if city then
+        local near, steps = pl:nearest_walk(rooms)
+        if near then
+            scripts:print_log(string.format("Adresat %d krokow pieszo - /gnaj %d", steps, near))
+            expandAlias("/gnaj " .. near)
+        elseif city then
             expandAlias("/trasa " .. city .. (#rooms == 1 and (" " .. rooms[1]) or ""))
         elseif #rooms == 1 then
             expandAlias("/trasa " .. rooms[1])
