@@ -216,6 +216,7 @@ function sz.stop(msg)
     sz.sloik_pending = nil
     sz.clear_search()
     sz.clear_sloik()
+    sz.clear_check()
     if msg then log("sz", msg) end
 end
 
@@ -255,11 +256,17 @@ end
 
 -- ---------- sloik ----------
 local SLOIK_SEQ = 3.5   -- czas sekwencji otworz/wloz/zamknij, po niej liczymy ziola
+local SLOIK_READ_TIMEOUT = 5   -- zapas na odczyt "ob sloik"
 
 function sz.clear_sloik()
     for _, id in ipairs(sz.sloik_triggers or {}) do killTrigger(id) end
     sz.sloik_triggers = nil
     sz.ob_buf = nil
+end
+
+function sz.clear_check()
+    if sz.check_timer then killTimer(sz.check_timer); sz.check_timer = nil end
+    sz.check_after = nil
 end
 
 -- "Rozdeta aromatyczna lodyga jest zbyt ciezka." = sloik nie przyjmie wiecej
@@ -287,17 +294,35 @@ local function count_herbs(text)
     return count
 end
 
+-- koniec liczenia: log, ewentualny powrot, potem kontynuacja (zwykle sz.next)
 function sz.report_sloik(count)
     sz.clear_sloik()
-    log("sz", "<DimGrey>sloik " .. count .. "/" .. SLOIK_MAX .. " ziol")
-    if count >= SLOIK_MAX and sz.handlers then
-        sz.home("<red>sloik pelny")
+    if sz.check_timer then killTimer(sz.check_timer); sz.check_timer = nil end
+    local after = sz.check_after
+    sz.check_after = nil
+
+    if count then
+        log("sz", "<DimGrey>sloik " .. count .. "/" .. SLOIK_MAX .. " ziol")
+    else
+        log("sz", "<DimGrey>nie odczytalem zawartosci sloika")
     end
+
+    if count and count >= SLOIK_MAX and sz.handlers then
+        return sz.home("<red>sloik pelny")
+    end
+    if after and sz.handlers then after() end
 end
 
--- "ob sloik" -> zlicz ziola z opisu zawartosci (opis bywa lamany na kilka linii)
-function sz.check_sloik()
+-- "ob sloik" -> zlicz ziola z opisu zawartosci (opis bywa lamany na kilka linii);
+-- after odpala sie dopiero po odczycie (albo po SLOIK_READ_TIMEOUT), nie rownolegle
+function sz.check_sloik(after)
     sz.clear_sloik()
+    sz.check_after = after
+    if sz.check_timer then killTimer(sz.check_timer) end
+    sz.check_timer = tempTimer(SLOIK_READ_TIMEOUT, function()
+        sz.check_timer = nil
+        sz.report_sloik(nil)
+    end)
     sz.sloik_triggers = {
         tempLineTrigger(1, 20, function()
             if not sz.ob_buf then
@@ -320,14 +345,16 @@ function sz.check_sloik()
     send("ob sloik")
 end
 
--- co SLOIK_CO pol: komenda "sloik", odnowienie dzwieku, potem przeliczenie zawartosci
-function sz.sloik()
+-- co SLOIK_CO pol: komenda "sloik", odnowienie dzwieku, przeliczenie zawartosci,
+-- a dopiero po tym wszystkim kontynuacja (after) - nic nie dzieje sie rownolegle
+function sz.sloik(after)
     log("sz", "<orange>sloik (po " .. sz.pola .. " polach)")
     sz.watch_overflow()
     expandAlias("sloik", false)
     sz.sound_start()
     tempTimer(SLOIK_SEQ, function()
-        if sz.handlers then sz.check_sloik() end
+        if not sz.handlers then return end
+        sz.check_sloik(after)
     end)
 end
 
@@ -393,8 +420,11 @@ function sz.searched()
     sz.timer = tempTimer(delay, function()
         sz.timer = nil
         if not sz.handlers then return end
-        if sz.pola % SLOIK_CO == 0 then sz.sloik() end
-        sz.next()
+        if sz.pola % SLOIK_CO == 0 then
+            sz.sloik(sz.next)   -- ruch dopiero po sloiku i przeliczeniu
+        else
+            sz.next()
+        end
     end)
 end
 
@@ -449,8 +479,7 @@ function sz.start_alias(args)
 
     log("sz", "<green>start " .. sz.start .. ", pola: " .. table.concat(sz.poles, " "))
     sz.sound_start()
-    sz.check_sloik()
-    sz.next()
+    sz.check_sloik(sz.next)   -- pierwszy ruch dopiero po odczycie zawartosci
 end
 
 -- ============================================================
