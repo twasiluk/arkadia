@@ -190,7 +190,7 @@ end
 --  start = pole, na ktorym stoisz przy uruchomieniu
 -- ============================================================
 
-local SLOIK_MAX = 8     -- pojemnosc sloika (sztuk ziol); po przekroczeniu powrot na start
+local SLOIK_MAX = 16    -- pojemnosc sloika (sztuk ziol); po przekroczeniu powrot na start
 local SLOIK_CO = 3      -- co ile pol wykonac komende "sloik"
 local SZ_DELAY_MIN = 1  -- losowy postoj po skonczonym szukaniu (sekundy)
 local SZ_DELAY_MAX = 3
