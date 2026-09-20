@@ -159,6 +159,7 @@ return {
     "skrypty/misc/compare_with_everyone",
     "skrypty/misc/helper",
     "skrypty/misc/map_patch",
+    "skrypty/misc/walka_dzwiek",
     "skrypty/transport/transports",
     "skrypty/transport/ride",
     "skrypty/transport/podroz",
