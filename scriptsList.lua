@@ -157,6 +157,7 @@ return {
     "skrypty/misc/misc_on_exit_dump",
     "skrypty/misc/misc_load_dump",
     "skrypty/misc/compare_with_everyone",
+    "skrypty/misc/helper",
     "skrypty/transport/transports",
     "skrypty/transport/ride",
     "skrypty/transport/podroz",
