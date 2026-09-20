@@ -352,11 +352,17 @@ function scripts.podroz:play(kind, vehicle)
 end
 
 -- ---------- rejestracja ----------
+-- Nazwa pojazdu bywa rozwinieta po rzeczowniku ("...wsiadasz do kupieckiego
+-- stojacego wozu z plandeka."), wiec miedzy nazwa a koncem linii dopuszczamy
+-- dopisek. Bez tego wsiadanie nie zostaje zauwazone, a wtedy podroz nie wie,
+-- ze jest w pojezdzie, i nie wysiada na celu.
+local tail = "(?: [a-z]+)*\\.$"
+
 local vehicle_lines = {
-    ["[Ww]siadasz (?:do|na) .*(?:dylizansu?|wozu?|powozu?)\\.$"] = "dylizans",
-    ["wspinasz sie na .*dylizans\\.$"]               = "dylizans",
+    ["[Ww]siadasz (?:do|na) .*(?:dylizansu?|(?:po)?wozu?)" .. tail] = "dylizans",
+    ["wspinasz sie na .*(?:dylizans|(?:po)?woz)" .. tail]           = "dylizans",
     -- same "Wchodzisz na .+" lapaloby tez drzewa, mury itp. (i gralo dzwiek)
-    ["^Wchodzisz na (?:poklad .+|.*(?:statek|okret|prom|barke|barkasa|feluke|skeid|tratwe|bryg|drakkar|szkute|buzar|knare|galere|galeon|lodz|lodke|kog|karake|karawele|kuter))\\.$"] = "statek",
+    ["^Wchodzisz na (?:poklad .+|.*(?:statek|okret|prom|barke|barkasa|feluke|skeid|tratwe|bryg|drakkar|szkute|buzar|knare|galere|galeon|lodz|lodke|kog|karake|karawele|kuter))" .. tail] = "statek",
 }
 
 local aliases = {
