@@ -153,7 +153,11 @@ end
 local boarding = {
     -- woz i powoz jezdza jak dylizans (to samo "wyjscie" i wnetrze bez mapy)
     dylizans = {
-        pattern = "(?:dylizans|woz) powoli zatrzymuje sie|^(?:Woz|Powoz) cicho skrzypiac zatrzymuje sie",
+        -- nazwa pojazdu bywa rozwinieta ("Kupiecki jadacy woz z plandeka
+        -- powoli zatrzymuje sie."), wiec miedzy nazwa a "powoli" moze stac
+        -- dowolny dopisek - tak samo jak w trigerze powoz-zatrzymuje-sie
+        pattern = "(?:dylizans|(?:po)?woz)\\b.*? powoli zatrzymuje sie"
+            .. "|^(?:Woz|Powoz) cicho skrzypiac zatrzymuje sie",
         -- "Kupiecki stojacy woz powoli rusza w droge" to odjazd, nie postoj
         parked = "[A-Za-z]+ stojacy (?:dylizans|(?:po)?woz)(?!.* rusza)",
         board = function(line)
