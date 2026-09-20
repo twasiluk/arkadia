@@ -214,7 +214,7 @@ function sz.stop(msg)
     sz.handlers = nil
     sz.sloik_pending = nil
     sz.clear_search()
-    if sz.sloik_trigger then killTrigger(sz.sloik_trigger); sz.sloik_trigger = nil end
+    sz.clear_sloik()
     if msg then log("sz", msg) end
 end
 
@@ -253,37 +253,76 @@ function sz.next()
 end
 
 -- ---------- sloik ----------
--- odczyt reakcji na przekladanie ziol: linia o pelnym sloiku albo suma
--- liczb z linii mowiacych o ziolach (np. "Wkladasz 3 ziola do sloika.")
-local full_words = { "pelny", "pe\197\130ny", "pelen", "nie miesci", "nie mie\197\155ci" }
+local SLOIK_SEQ = 3.5   -- czas sekwencji otworz/wloz/zamknij, po niej liczymy ziola
 
-function sz.read_sloik()
-    if sz.sloik_trigger then killTrigger(sz.sloik_trigger); sz.sloik_trigger = nil end
-    sz.fill = 0
-    sz.sloik_trigger = tempLineTrigger(1, 20, function()
-        local text = line:lower()
-        for _, word in ipairs(full_words) do
-            if text:find(word, 1, true) then
-                sz.sloik_trigger = nil
-                return sz.home("<red>sloik pelny")
-            end
-        end
-        if text:find("ziol", 1, true) or text:find("zi\195\179\197\130", 1, true) then
-            for n in text:gmatch("%d+") do sz.fill = sz.fill + tonumber(n) end
-        end
-        if sz.fill > SLOIK_MAX then
-            sz.sloik_trigger = nil
-            sz.home("<red>sloik pelny (" .. sz.fill .. "/" .. SLOIK_MAX .. ")")
-        end
-    end)
+function sz.clear_sloik()
+    for _, id in ipairs(sz.sloik_triggers or {}) do killTrigger(id) end
+    sz.sloik_triggers = nil
+    sz.ob_buf = nil
 end
 
--- co SLOIK_CO pol: komenda "sloik" + odnowienie dzwieku
+-- "Rozdeta aromatyczna lodyga jest zbyt ciezka." = sloik nie przyjmie wiecej
+function sz.watch_overflow()
+    sz.clear_sloik()
+    sz.sloik_triggers = {
+        tempRegexTrigger("jest zbyt ci", function()
+            sz.home("<red>sloik pelny (ziolo zbyt ciezkie)")
+        end)
+    }
+end
+
+-- lista zawartosci: "... zawiera a, b, c i d." -> liczba ziol
+local function count_herbs(text)
+    text = text:gsub("%s+", " "):gsub("%s*%.%s*$", "")
+    if text == "" then return 0 end
+    local count = 1
+    for _ in text:gmatch(",") do count = count + 1 end
+    if text:find(" i ", 1, true) then count = count + 1 end
+    return count
+end
+
+function sz.report_sloik(count)
+    sz.clear_sloik()
+    log("sz", "<DimGrey>sloik " .. count .. "/" .. SLOIK_MAX .. " ziol")
+    if count >= SLOIK_MAX and sz.handlers then
+        sz.home("<red>sloik pelny")
+    end
+end
+
+-- "ob sloik" -> zlicz ziola z opisu zawartosci (opis bywa lamany na kilka linii)
+function sz.check_sloik()
+    sz.clear_sloik()
+    sz.sloik_triggers = {
+        tempLineTrigger(1, 20, function()
+            if not sz.ob_buf then
+                local rest = line:match("zawiera (.+)$")
+                if rest then
+                    sz.ob_buf = rest
+                elseif line:lower():find("pusty", 1, true) then
+                    return sz.report_sloik(0)
+                else
+                    return
+                end
+            else
+                sz.ob_buf = sz.ob_buf .. " " .. line
+            end
+            if sz.ob_buf:find("%.%s*$") then
+                sz.report_sloik(count_herbs(sz.ob_buf))
+            end
+        end)
+    }
+    send("ob sloik")
+end
+
+-- co SLOIK_CO pol: komenda "sloik", odnowienie dzwieku, potem przeliczenie zawartosci
 function sz.sloik()
     log("sz", "<orange>sloik (po " .. sz.pola .. " polach)")
-    sz.read_sloik()
+    sz.watch_overflow()
     expandAlias("sloik", false)
     sz.sound_start()
+    tempTimer(SLOIK_SEQ, function()
+        if sz.handlers then sz.check_sloik() end
+    end)
 end
 
 -- ---------- zbieranie ----------
@@ -382,13 +421,13 @@ function sz.start_alias(args)
     sz.index = 0
     sz.moves = 0
     sz.pola = 0
-    sz.fill = 0
     sz.handlers = {
         registerAnonymousEventHandler("amapWalkerFinished", sz.arrived),
     }
 
     log("sz", "<green>start " .. sz.start .. ", pola: " .. table.concat(sz.poles, " "))
     sz.sound_start()
+    sz.check_sloik()
     sz.next()
 end
 
