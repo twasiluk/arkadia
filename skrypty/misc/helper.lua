@@ -190,7 +190,7 @@ end
 --  start = pole, na ktorym stoisz przy uruchomieniu
 -- ============================================================
 
-local SLOIK_MAX = 100   -- pojemnosc sloika (sztuk ziol); po przekroczeniu powrot na start
+local SLOIK_MAX = 8     -- pojemnosc sloika (sztuk ziol); po przekroczeniu powrot na start
 local SLOIK_CO = 3      -- co ile pol wykonac komende "sloik"
 local SZ_DELAY = 95     -- sekundy postoju na polu przed ruchem do nastepnego
 local SZ_MAX_MOVES = 20 -- po tylu ruchach powrot na start
@@ -250,14 +250,24 @@ function sz.next()
 end
 
 -- ---------- sloik ----------
--- odczyt zawartosci sloika: sumuje liczby z linii wypisanych po komendzie
--- (kazda linia z opisem ziola zaczyna sie od liczby sztuk)
+-- odczyt reakcji na przekladanie ziol: linia o pelnym sloiku albo suma
+-- liczb z linii mowiacych o ziolach (np. "Wkladasz 3 ziola do sloika.")
+local full_words = { "pelny", "pe\197\130ny", "pelen", "nie miesci", "nie mie\197\155ci" }
+
 function sz.read_sloik()
     if sz.sloik_trigger then killTrigger(sz.sloik_trigger); sz.sloik_trigger = nil end
     sz.fill = 0
-    sz.sloik_trigger = tempLineTrigger(1, 15, function()
-        local n = line:match("^%s*(%d+)%s")
-        if n then sz.fill = sz.fill + tonumber(n) end
+    sz.sloik_trigger = tempLineTrigger(1, 20, function()
+        local text = line:lower()
+        for _, word in ipairs(full_words) do
+            if text:find(word, 1, true) then
+                sz.sloik_trigger = nil
+                return sz.home("<red>sloik pelny")
+            end
+        end
+        if text:find("ziol", 1, true) or text:find("zi\195\179\197\130", 1, true) then
+            for n in text:gmatch("%d+") do sz.fill = sz.fill + tonumber(n) end
+        end
         if sz.fill > SLOIK_MAX then
             sz.sloik_trigger = nil
             sz.home("<red>sloik pelny (" .. sz.fill .. "/" .. SLOIK_MAX .. ")")
@@ -269,7 +279,7 @@ end
 function sz.sloik()
     log("sz", "<orange>sloik (po " .. sz.pola .. " polach)")
     sz.read_sloik()
-    send("sloik")
+    expandAlias("sloik", false)
     sz.sound_start()
 end
 
@@ -366,11 +376,22 @@ function rec.start_alias(args)
 end
 
 -- ============================================================
+--  sloik - przelozenie zebranych ziol do sloika
+-- ============================================================
+
+function scripts.helper.sloik_alias()
+    send("otworz sloik")
+    tempTimer(1.5, function() send("wloz ziola do sloika") end)
+    tempTimer(2.1, function() send("zamknij sloik") end)
+end
+
+-- ============================================================
 
 local aliases = {
     ["^/qk (.+)$"] = function() qk.start_alias(matches[2]) end,
     ["^/sz (.+)$"] = function() sz.start_alias(matches[2]) end,
     ["^/rec(?: (print|stop))?$"] = function() rec.start_alias(matches[2]) end,
+    ["^sloik$"] = function() scripts.helper.sloik_alias() end,
 }
 
 function scripts.helper:init()
