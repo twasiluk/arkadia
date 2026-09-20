@@ -34,6 +34,22 @@ local function print_log(msg)
     cecho("\n<CadetBlue>(podroz)<reset>: " .. msg .. "\n")
 end
 
+-- Chodzik podrozy biegnie szybciej niz ustawienie gracza (/opoz), wiec przed
+-- pierwszym /gnaj zapamietujemy opoznienie i przywracamy je na koniec podrozy.
+local walk_delay = 4
+
+function scripts.podroz:save_delay()
+    if self.saved_delay == nil then
+        self.saved_delay = amap.walker_delay or amap.set_walker_delay
+    end
+end
+
+function scripts.podroz:restore_delay()
+    if self.saved_delay == nil then return end
+    amap.walker_delay = self.saved_delay
+    self.saved_delay = nil
+end
+
 -- losowa zwloka przed wsiadaniem i wysiadaniem (sekundy)
 local delay_min, delay_max = 3, 6
 
@@ -91,8 +107,14 @@ function scripts.podroz:left()
         -- nastepny odcinek rusza dopiero po dojsciu na przystanek, inaczej
         -- zlapalby pojazd, z ktorego postac wlasnie wysiadla
         self.next_on_walk = self.pending_legs ~= nil
+        self:save_delay()
         -- chwila na ustawienie pozycji przez mapper
-        tempTimer(1, function() expandAlias("/gnaj " .. room .. " 4", true) end)
+        tempTimer(1, function()
+            expandAlias("/gnaj " .. room .. " " .. walk_delay, true)
+        end)
+    else
+        -- wysiadka na ostatnim przystanku, bez dojscia - koniec podrozy
+        self:restore_delay()
     end
 end
 
@@ -272,7 +294,8 @@ function scripts.podroz:walk_then_start(room, legs)
     end
     self.pending_legs, self.next_on_walk = legs, true
     print_log("<green>najpierw /gnaj " .. room .. "<DimGrey>, potem: " .. describe_legs(legs))
-    expandAlias("/gnaj " .. room .. " 4", true)
+    self:save_delay()
+    expandAlias("/gnaj " .. room .. " " .. walk_delay, true)
 end
 
 function scripts.podroz:cancel(silent)
@@ -285,7 +308,11 @@ function scripts.podroz:cancel(silent)
     self.pending_walk = nil
     self.pending_legs = nil
     self.next_on_walk = nil
-    if not silent then print_log("<tomato>przerwane") end
+    -- cancel(true) tylko przestawia odcinek, cancel() konczy cala podroz
+    if not silent then
+        self:restore_delay()
+        print_log("<tomato>przerwane")
+    end
 end
 
 function scripts.podroz:status()
@@ -356,6 +383,9 @@ local handlers = {
             self:start(legs)
         elseif self.wait_triggers then
             send("spojrz", false)
+        elseif not self.vehicle and not self.target then
+            -- dojscie po ostatnim odcinku - koniec podrozy
+            self:restore_delay()
         end
     end,
     podrozBoarded   = function(_, vehicle) scripts.podroz:play_event("boarded", vehicle) end,

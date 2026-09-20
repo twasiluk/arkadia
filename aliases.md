@@ -1415,6 +1415,8 @@ Czeka na dylizans lub statek (co pierwsze sie zatrzyma), wsiada (na statek: `wem
 
 Wsiadanie i wysiadanie nastepuje z losowa zwloka 3-6 s.
 
+Chodzik podrozy idzie z opoznieniem 4. Opoznienie sprzed `/podroz` (ustawione przez `/opoz`, `/szybciej`, `/wolniej`) wraca po zakonczeniu podrozy - takze po `/podroz stop` i po wygasnieciu czekania lub celu.
+
 Opcjonalne `<id lokacji>` na poczatku (np. `/podroz 6621 Blekitna Wstega`) - najpierw `/gnaj <id lokacji> 4` na przystanek, czekanie na pojazd rusza po dojsciu (jesli postac juz tam stoi - od razu).
 
 Opcjonalne `<id lokacji>` po przystanku (np. `/podroz Nuln 1234`) - po wysiadce uruchamia `/gnaj <id lokacji> 4`.
