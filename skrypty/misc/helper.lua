@@ -289,10 +289,11 @@ end
 -- ---------- zbieranie ----------
 -- koniec szukania:
 --   "Znajdujesz kolczasta wysuszona rosline."
+--   "Nie znajdujesz zadnych ziol."
 --   "Szukasz wszedzie, ale nie znajdujesz zadnych ziol."
 local search_end = {
     "^Znajdujesz ",
-    "nie znajdujesz",
+    "[Nn]ie znajdujesz",
 }
 
 function sz.clear_search()
