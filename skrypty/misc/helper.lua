@@ -194,7 +194,7 @@ local SLOIK_MAX = 8     -- pojemnosc sloika (sztuk ziol); po przekroczeniu powro
 local SLOIK_CO = 3      -- co ile pol wykonac komende "sloik"
 local SZ_DELAY_MIN = 1  -- losowy postoj po skonczonym szukaniu (sekundy)
 local SZ_DELAY_MAX = 3
-local SZ_TIMEOUT = 60   -- zapas, gdy linia konca szukania nie przyjdzie
+local SZ_TIMEOUT = 20   -- zapas, gdy linia konca szukania nie przyjdzie
 local SZ_MAX_MOVES = 20 -- po tylu ruchach powrot na start
 local SOUND = "piano-870218.wav"   -- w getMudletHomeDir()/sounds
 
@@ -300,14 +300,16 @@ function sz.clear_search()
     if sz.timer then killTimer(sz.timer); sz.timer = nil end
 end
 
-function sz.szukaj()
+-- done - co zrobic po linii konca szukania (domyslnie: postoj i ruch dalej)
+function sz.szukaj(done)
+    done = done or sz.searched
     sz.clear_search()
     log("sz", "<green>szukam ziol")
     sz.search_triggers = {}
     for _, pattern in ipairs(search_end) do
-        table.insert(sz.search_triggers, tempRegexTrigger(pattern, function() sz.searched() end))
+        table.insert(sz.search_triggers, tempRegexTrigger(pattern, function() done() end))
     end
-    sz.timer = tempTimer(SZ_TIMEOUT, function() sz.timer = nil; sz.searched() end)
+    sz.timer = tempTimer(SZ_TIMEOUT, function() sz.timer = nil; done() end)
     send("szukaj ziol")
 end
 
@@ -334,10 +336,14 @@ end
 function sz.start_alias(args)
     sz.stop()
 
-    -- bez parametrow: samo szukanie na biezacej lokacji, bez obchodu
+    -- bez parametrow: samo szukanie na biezacej lokacji, bez obchodu;
+    -- dzwiek gra do konca szukania
     if not args then
-        log("sz", "<green>szukam ziol")
-        send("szukaj ziol")
+        sz.sound_start()
+        sz.szukaj(function()
+            sz.clear_search()
+            stopSounds()
+        end)
         return
     end
 
