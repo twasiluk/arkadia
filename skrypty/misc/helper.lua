@@ -192,7 +192,9 @@ end
 
 local SLOIK_MAX = 8     -- pojemnosc sloika (sztuk ziol); po przekroczeniu powrot na start
 local SLOIK_CO = 3      -- co ile pol wykonac komende "sloik"
-local SZ_DELAY = 95     -- sekundy postoju na polu przed ruchem do nastepnego
+local SZ_DELAY_MIN = 1  -- losowy postoj po skonczonym szukaniu (sekundy)
+local SZ_DELAY_MAX = 3
+local SZ_TIMEOUT = 60   -- zapas, gdy linia konca szukania nie przyjdzie
 local SZ_MAX_MOVES = 20 -- po tylu ruchach powrot na start
 local SOUND = "piano-870218.wav"   -- w getMudletHomeDir()/sounds
 
@@ -210,7 +212,7 @@ end
 function sz.stop(msg)
     for _, id in ipairs(sz.handlers or {}) do killAnonymousEventHandler(id) end
     sz.handlers = nil
-    if sz.timer then killTimer(sz.timer); sz.timer = nil end
+    sz.clear_search()
     if sz.sloik_trigger then killTrigger(sz.sloik_trigger); sz.sloik_trigger = nil end
     if msg then log("sz", msg) end
 end
@@ -284,15 +286,37 @@ function sz.sloik()
 end
 
 -- ---------- zbieranie ----------
+-- koniec szukania:
+--   "Znajdujesz kolczasta wysuszona rosline."
+--   "Szukasz wszedzie, ale nie znajdujesz zadnych ziol."
+local search_end = {
+    "^Znajdujesz ",
+    "nie znajdujesz",
+}
+
+function sz.clear_search()
+    for _, id in ipairs(sz.search_triggers or {}) do killTrigger(id) end
+    sz.search_triggers = nil
+    if sz.timer then killTimer(sz.timer); sz.timer = nil end
+end
+
 function sz.szukaj()
+    sz.clear_search()
     log("sz", "<green>szukam ziol")
+    sz.search_triggers = {}
+    for _, pattern in ipairs(search_end) do
+        table.insert(sz.search_triggers, tempRegexTrigger(pattern, function() sz.searched() end))
+    end
+    sz.timer = tempTimer(SZ_TIMEOUT, function() sz.timer = nil; sz.searched() end)
     send("szukaj ziol")
 end
 
--- postoj na polu, potem ruch dalej (co SLOIK_CO pol - komenda sloik)
-function sz.wait()
-    if sz.timer then killTimer(sz.timer); sz.timer = nil end
-    sz.timer = tempTimer(SZ_DELAY, function()
+-- po skonczonym szukaniu: losowy postoj, potem sloik (co SLOIK_CO pol) i ruch dalej
+function sz.searched()
+    if not sz.handlers then return end
+    sz.clear_search()
+    local delay = SZ_DELAY_MIN + math.random() * (SZ_DELAY_MAX - SZ_DELAY_MIN)
+    sz.timer = tempTimer(delay, function()
         sz.timer = nil
         if not sz.handlers then return end
         if sz.pola % SLOIK_CO == 0 then sz.sloik() end
@@ -300,16 +324,22 @@ function sz.wait()
     end)
 end
 
--- po dojsciu: szukaj ziol, postoj, potem kolejny ruch (albo powrot, gdy limit)
+-- po dojsciu na pole: szukaj ziol (ruch dalej dopiero po znalezieniu/pudle)
 function sz.arrived()
     if not sz.handlers then return end
     sz.pola = sz.pola + 1
     sz.szukaj()
-    sz.wait()
 end
 
 function sz.start_alias(args)
     sz.stop()
+
+    -- bez parametrow: samo szukanie na biezacej lokacji, bez obchodu
+    if not args then
+        log("sz", "<green>szukam ziol")
+        send("szukaj ziol")
+        return
+    end
 
     if args == "stop" then
         if amap.walker then amap:terminate_walker() end
@@ -326,7 +356,7 @@ function sz.start_alias(args)
     local ids = {}
     for id in args:gmatch("%d+") do table.insert(ids, id) end
     if #ids < 1 then
-        log("sz", "<tomato>uzycie: /sz <pole-id> [<pole-id>...] | /sz stop")
+        log("sz", "<tomato>uzycie: /sz [<pole-id> ...] | /sz stop")
         return
     end
 
@@ -389,7 +419,7 @@ end
 
 local aliases = {
     ["^/qk (.+)$"] = function() qk.start_alias(matches[2]) end,
-    ["^/sz (.+)$"] = function() sz.start_alias(matches[2]) end,
+    ["^/sz(?: (.+))?$"] = function() sz.start_alias(matches[2]) end,
     ["^/rec(?: (print|stop))?$"] = function() rec.start_alias(matches[2]) end,
     ["^sloik$"] = function() scripts.helper.sloik_alias() end,
 }
