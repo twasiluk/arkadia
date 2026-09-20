@@ -7,6 +7,7 @@
 
 scripts.helper = scripts.helper or {
     aliases = {},
+    triggers = {},
     qk = {},
     sz = {},
     rec = { ids = {} },
@@ -267,7 +268,12 @@ function sz.watch_overflow()
     sz.sloik_triggers = {
         tempRegexTrigger("jest zbyt ci", function()
             sz.home("<red>sloik pelny (ziolo zbyt ciezkie)")
-        end)
+        end),
+        -- "Jestes teraz zajety czyms innym." - powtorz po skonczonej czynnosci
+        tempRegexTrigger("[Jj]estes teraz zajety", function()
+            sz.sloik_pending = true
+            log("sloik", "<DimGrey>postac zajeta, powtorze po czynnosci")
+        end),
     }
 end
 
@@ -335,9 +341,13 @@ local search_end = {
     "[Nn]ie znajdujesz",
 }
 
+-- "Zaczynasz szukac ziol." - dopoki trwa, gra nie przyjmie innych komend
+local search_start = "[Zz]aczynasz szukac zi"
+
 function sz.clear_search()
     for _, id in ipairs(sz.search_triggers or {}) do killTrigger(id) end
     sz.search_triggers = nil
+    sz.searching = nil
     if sz.timer then killTimer(sz.timer); sz.timer = nil end
 end
 
@@ -355,11 +365,23 @@ function sz.szukaj(done)
     done = done or sz.searched
     sz.clear_search()
     log("sz", "<green>szukam ziol")
+    sz.searching = true
     sz.search_triggers = {}
     for _, pattern in ipairs(search_end) do
-        table.insert(sz.search_triggers, tempRegexTrigger(pattern, function() done() end))
+        table.insert(sz.search_triggers, tempRegexTrigger(pattern, function()
+            sz.searching = nil
+            done()
+        end))
     end
-    sz.timer = tempTimer(SZ_TIMEOUT, function() sz.timer = nil; done() end)
+    -- zapas: przedluzany, dopoki trwa szukanie (linia konca moglaby zginac w gagu)
+    local function guard()
+        sz.timer = tempTimer(SZ_TIMEOUT, function()
+            sz.timer = nil
+            if sz.searching then return guard() end
+            done()
+        end)
+    end
+    guard()
     send("szukaj ziol")
 end
 
@@ -473,7 +495,7 @@ end
 
 -- w trakcie "szukaj ziol" sloik czeka na linie konca szukania
 function scripts.helper.sloik_alias()
-    if sz.search_triggers then
+    if sz.searching then
         sz.sloik_pending = true
         log("sloik", "<DimGrey>czekam na koniec szukania ziol")
         return
@@ -491,8 +513,22 @@ local aliases = {
 }
 
 function scripts.helper:init()
+    self.triggers = self.triggers or {}
     for _, id in ipairs(self.aliases) do killAlias(id) end
-    self.aliases = {}
+    for _, id in ipairs(self.triggers) do killTrigger(id) end
+    self.aliases, self.triggers = {}, {}
+
+    -- stan czynnosci "szukaj ziol" - takze dla recznego szukania
+    table.insert(self.triggers, tempRegexTrigger(search_start, function() sz.searching = true end))
+    for _, pattern in ipairs(search_end) do
+        table.insert(self.triggers, tempRegexTrigger(pattern, function()
+            sz.searching = nil
+            if sz.sloik_pending then
+                sz.sloik_pending = nil
+                scripts.helper.run_sloik()
+            end
+        end))
+    end
 
     for regex, callback in pairs(aliases) do
         table.insert(self.aliases, tempAlias(regex, callback))
