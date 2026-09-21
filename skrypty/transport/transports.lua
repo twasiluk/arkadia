@@ -14,6 +14,7 @@ local enter_commands = {
     "wsiadz na prom",
     "wsiadz do dylizansu",
     "wsiadz do wozu",
+    "wsiadz do powozu",
     "wjedz na statek"
 }
 
@@ -78,8 +79,14 @@ function scripts.transports:init()
 end
 
 function _find_ride()
-    scripts.transports:find_ride()
-    send(matches[1], false)
+    scripts.transports:enter(matches[1], false)
+end
+
+-- Wsiadanie do srodka transportu: zaczyna sledzenie przejazdu (jesli trasa
+-- ma definicje) i wysyla komende. Wolane z aliasu i ze skryptow (podroz).
+function scripts.transports:enter(command, echo)
+    self:find_ride()
+    send(command, echo ~= false)
 end
 
 function scripts.transports:get(location)

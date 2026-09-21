@@ -165,7 +165,7 @@ local boarding = {
             local vehicle = lower:match("powoz") and "powozu" or lower:match("woz") and "wozu"
                 or "dylizansu"
             expandAlias("wem", true)    -- wez monety z sakiewki
-            send("wsiadz do " .. vehicle)
+            scripts.transports:enter("wsiadz do " .. vehicle)
             expandAlias("wlm", true)    -- wloz monety z powrotem
         end,
     },
@@ -179,7 +179,7 @@ local boarding = {
         board = function(_)
             expandAlias("wem", true)    -- wez monety z sakiewki
             send("kup bilet")
-            send("wsiadz na statek")
+            scripts.transports:enter("wsiadz na statek")
             expandAlias("wlm", true)    -- wloz monety z powrotem
         end,
     },
