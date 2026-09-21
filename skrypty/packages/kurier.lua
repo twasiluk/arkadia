@@ -31,6 +31,7 @@ function ku:clear_waiting()
     for _, id in ipairs(self.timers) do killTimer(id) end
     for _, id in ipairs(self.handlers) do killAnonymousEventHandler(id) end
     self.triggers, self.timers, self.handlers = {}, {}, {}
+    self.watching, self.deadline_info = {}, nil
 end
 
 function ku:stop(msg, color)
@@ -47,6 +48,7 @@ function ku:next(what, callback)
     if not self.running then return end
     local delay = delay_min + math.random() * (delay_max - delay_min)
     print_log(string.format("<DimGrey>%s za %.1f s", what, delay))
+    self.stage = { name = what, at = os.time() + delay }
     table.insert(self.timers, tempTimer(delay, function()
         if ku.running then callback() end
     end))
@@ -54,10 +56,13 @@ end
 
 function ku:watch(pattern, callback)
     table.insert(self.triggers, tempRegexTrigger(pattern, callback))
+    self.watching = self.watching or {}
+    table.insert(self.watching, pattern)
 end
 
 function ku:deadline(seconds, msg)
     table.insert(self.timers, tempTimer(seconds, function() ku:stop(msg) end))
+    self.deadline_info = { msg = msg, at = os.time() + seconds }
 end
 
 -- chodzik skonczony i postac stoi w oczekiwanej lokacji; amapWalkerFinished
@@ -351,12 +356,49 @@ function ku:run(count)
     self:next("droga na poczte", function() ku:goto_post() end)
 end
 
+-- ---------- /kurier stan ----------
+local function show(value)
+    if type(value) ~= "table" then return tostring(value) end
+    local parts = {}
+    for k, v in pairs(value) do table.insert(parts, tostring(k) .. "=" .. show(v)) end
+    table.sort(parts)
+    return "{ " .. table.concat(parts, ", ") .. " }"
+end
+
+function ku:state()
+    local now = os.time()
+    local room = current_room()
+    local lines = {
+        { "running", self.running },
+        { "left", self.left },
+        { "stage", self.stage and string.format("%s (%+ds)", self.stage.name, self.stage.at - now) },
+        { "deadline", self.deadline_info and string.format("%s (za %ds)", self.deadline_info.msg, self.deadline_info.at - now) },
+        { "package", self.package },
+        { "triggers/timers/handlers", #self.triggers .. "/" .. #self.timers .. "/" .. #self.handlers },
+        { "room", room and string.format("%s %s [%s]", room, tostring(room ~= -1 and getRoomName(room)), tostring(room_city(room))) },
+        { "walker", amap and string.format("%s dest=%s", tostring(amap.walker), tostring(amap.walker_dest)) },
+        { "current_offer", scripts.packages.current_offer },
+        { "picked_offer", scripts.packages.picked_offer },
+    }
+    print_log("<CadetBlue>stan")
+    for _, line in ipairs(lines) do
+        cecho(string.format("  <DimGrey>%s:<reset> %s\n", line[1], show(line[2])))
+    end
+    for _, pattern in ipairs(self.watching or {}) do
+        cecho("  <DimGrey>watch:<reset> ")
+        echo(pattern .. "\n")
+    end
+end
+
 local aliases = {
     ["^/kurier(?: (\\d+))?$"] = function()
         scripts.kurier:run(tonumber(matches[2]) or 1)
     end,
     ["^/kurier stop$"] = function()
         scripts.kurier:stop("przerwane")
+    end,
+    ["^/kurier stan$"] = function()
+        scripts.kurier:state()
     end,
 }
 
