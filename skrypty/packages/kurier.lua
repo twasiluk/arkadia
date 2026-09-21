@@ -60,15 +60,19 @@ function ku:deadline(seconds, msg)
     table.insert(self.timers, tempTimer(seconds, function() ku:stop(msg) end))
 end
 
--- chodzik skonczony i postac stoi w oczekiwanej lokacji
+-- chodzik skonczony i postac stoi w oczekiwanej lokacji; amapWalkerFinished
+-- leci takt chodzika po wyslaniu ostatniego kroku, czesto zanim mapper
+-- zmieni lokacje - wtedy dojscie lapie dopiero amapNewLocation
 function ku:on_arrival(room, callback)
-    table.insert(self.handlers, registerAnonymousEventHandler("amapWalkerFinished", function()
-        if not ku.running then return end
+    local function check()
+        if not ku.running or amap.walker then return end
         if amap.curr.id == room then
             ku:clear_waiting()
             callback()
         end
-    end))
+    end
+    table.insert(self.handlers, registerAnonymousEventHandler("amapWalkerFinished", check))
+    table.insert(self.handlers, registerAnonymousEventHandler("amapNewLocation", check))
 end
 
 local function current_room()
