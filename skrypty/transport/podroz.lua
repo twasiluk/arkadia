@@ -163,11 +163,11 @@ local boarding = {
         board = function(line)
             local lower = line:lower()
             local vehicle = lower:match("powoz") and "powozu" or lower:match("woz") and "wozu"
+            expandAlias("wem", true)    -- wez monety z sakiewki
             if not vehicle then
                 send("wejdz do dylizansu")
                 return
-            end
-            expandAlias("wem", true)    -- wez monety z sakiewki
+            end            
             send("wsiadz do " .. vehicle)
             expandAlias("wlm", true)    -- wloz monety z powrotem
         end,
