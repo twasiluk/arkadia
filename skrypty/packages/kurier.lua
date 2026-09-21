@@ -109,16 +109,21 @@ function ku:nearest_post()
     return best, best_steps
 end
 
-function ku:goto_post()
+-- po dojsciu: tablica, albo "gotowe" po ostatnim kursie (last)
+function ku:goto_post(last)
+    local function arrived()
+        if last then return ku:stop("gotowe", "green") end
+        ku:next("tablica", function() ku:read_board() end)
+    end
     local room, steps = self:nearest_post()
     if not room then return self:stop("nie znalazlem poczty na mapie") end
     if steps == 0 then
         print_log("<DimGrey>juz na poczcie " .. room)
-        return self:next("tablica", function() ku:read_board() end)
+        return arrived()
     end
     print_log(string.format("<green>poczta %d (%d krokow)", room, steps))
     self:clear_waiting()
-    self:on_arrival(room, function() ku:next("tablica", function() ku:read_board() end) end)
+    self:on_arrival(room, arrived)
     self:deadline(travel_timeout, "nie dotarlem na poczte")
     expandAlias("/gnaj " .. room, true)
 end
@@ -340,7 +345,7 @@ function ku:finish_round()
     self.package = nil
     self.left = (self.left or 1) - 1
     if self.left <= 0 then
-        return self:stop("gotowe", "green")
+        return self:next("powrot na poczte", function() ku:goto_post(true) end)
     end
     print_log("<green>zostalo kursow: " .. self.left)
     self:next("nastepny kurs", function() ku:goto_post() end)
