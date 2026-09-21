@@ -19,7 +19,7 @@ function trigger_func_mapper_localizers_ships_buses_buses_wyzima_oxen_gps_piana(
 end
 
 function trigger_func_mapper_localizers_ships_buses_buses_wyzima_oxen_gps_polnoc_oxen()
-    amap:print_log("GPS: Polnoc Oxen", true)
+    amap:print_log("GPS: Polnoc Oxenfurtu", true)
     amap:set_position(790, true)
 end
 

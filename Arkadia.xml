@@ -6939,15 +6939,27 @@ scripts.misc.knowledge:stop_reading_library()</script>
 											<colorTriggerFgColor>#000000</colorTriggerFgColor>
 											<colorTriggerBgColor>#000000</colorTriggerBgColor>
 											<regexCodeList>
-												<string>^Dostrzegajac slabosc (?'target'\w+(?: \w+){0,4}), (?'attacker'\w+(?: \w+ \w+|)) do nie(go|j), by wbic swoj gorejacy dlugi talwar w (?'where'.+)\. Klinga je(?:go|j) miecza wybucha (?'damage'olbrzymim) plomieniem, ktory w mgnieniu oka ogarnia przeciwni(?:czke|ka) w calosci\.$</string>
+												<string>^Dostrzegajac [^.]+?, (?'attacker'\w+(?: \w+ \w+|)) do (?:niego|niej|ciebie), by wbic swoj gorejacy dlugi talwar w (?'where'.+)\. Klinga je(?:go|j) miecza wybucha (?'damage'olbrzymim) plomieniem, ktor\w+ w mgnieniu oka ogarnia [^.]*\.$</string>
 												<string>^Gdy (?'attacker'\w+(?: \w+ \w+|)) uderza (?'target'\w+(?: \w+){0,4}) gorejacym dlugim talwarem w (?'where'.+?), klinga je(?:go|j) miecza rozpala sie do czerwonosci, (?'damage'parzac) (?:cie|przeciwni(?:czke|ka)) nieznacznie\.$</string>
 												<string>^Gdy z silnego zamachu (?'attacker'\w+(?: \w+ \w+|)) tnie (?'target'\w+(?: \w+){0,4}) w (?'where'.+?), brzeszczot je(?:go|j) gorejacego dlugiego talwara (?'damage'wybucha) krwistoczerwonym jezorem ognia, mocno parzac (?:cie|przeciwni(?:czke|ka))\.$</string>
 												<string>^Widzac, ze na ostrzu gorejacego dlugiego talwara zaczynaja pelzac ogniste plomyki, (?'attacker'\w+(?: \w+ \w+|)) wykonuje szybki zamach, trafiajac (?'target'\w+(?: \w+){0,4}) w (?'where'.+?), pozostawiajac tam (?'damage'spore) oparzenie\.$</string>
 												<string>^Brzeszczot gorejacego dlugiego talwara rozgrzewa sie nagle do czerwonosci, zas po jego powierzchni zaczynaja tanczyc krwistoczerwone plomienie\. Wykorzystujac nadarzajaca sie okazje, (?'attacker'\w+(?: \w+ \w+|)) z calych sil uderza nim (?'target'\w+(?: \w+){0,4}) w (?'where'.+?), pozostawiajac (?'damage'potworne) obrazenia\.$</string>
 												<string>^(?'attacker'\w+(?: \w+){0,4}) niezgrabnym ruchem (?'damage'probuje) zaskoczyc (?'target'\w+(?: \w+){0,4}), ale je(?:go|j) wyrzucony przed siebie gorejacy dlugi talwar dzga tylko powietrze\.$</string>
-												<string>^(?'attacker'\w+(?: \w+){0,4}) szybkim ruchem kluje (?'target'\w+(?: \w+){0,4}) gorejacym dlugim talwarem w (?'where'.+?)\. W momencie dotyku z ostrza miecza bucha fala ognia, ktora znacznie parzy przeciwnika\.$</string>
+												<string>^(?'attacker'\w+(?: \w+){0,4}) szybkim ruchem kluje (?'target'\w+(?: \w+){0,4}) gorejacym dlugim talwarem w (?'where'.+?)\. W momencie dotyku z ostrza miecza bucha fala ognia, ktora (?'damage'znacznie) parzy (?:cie|przeciwni(?:czke|ka))\.$</string>
+												<string>^Gdy z silnego zamachu tniesz (?'target'\w+(?: \w+){0,4}) w (?'where'.+?), brzeszczot gorejacego dlugiego talwara (?'damage'wybucha) krwistoczerwonym jezorem ognia, mocno parzac tw\w+ przeciwni(?:ka|czke)\.$</string>
+												<string>^Gdy uderzasz (?'target'\w+(?: \w+){0,4}) gorejacym dlugim talwarem w (?'where'.+?), klinga twego miecza rozpala sie do czerwonosci, (?'damage'parzac) nieznacznie przeciwni(?:ka|czke)\.$</string>
+												<string>^Dostrzegajac slabosc (?'target'\w+(?: \w+){0,4}), blyskawicznie (?:don|do niej) doskakujesz, by wbic swoj gorejacy dlugi talwar w (?'where'.+)\. Klinga miecza wybucha (?'damage'olbrzymim) plomieniem, ktore w mgnieniu oka ogarnia tw\w+ przeciwni(?:ka|czke), zakanczajac je(?:go|j) zywot\.$</string>
+												<string>^Widzac, ze na ostrzu twego gorejacego dlugiego talwara zaczynaja pelzac ogniste plomyki, wykonujesz szybki zamach, trafiajac (?'target'\w+(?: \w+){0,4}) w (?'where'.+?), pozostawiajac tam (?'damage'spore) oparzenie\.$</string>
+												<string>^Brzeszczot twego gorejacego dlugiego talwara rozgrzewa sie nagle do czerwonosci, zas po jego powierzchni zaczynaja tanczyc krwistoczerwone plomienie\. Wykorzystujac nadarzajaca sie okazje, z calych sil uderzasz nim (?'target'\w+(?: \w+){0,4}) w (?'where'.+?), pozostawiajac (?'damage'potworne) obrazenia\.$</string>
+												<string>^Czujac, ze twoj gorejacy dlugi talwar zaczyna sie nagrzewac, szybkim ruchem klujesz (?'target'\w+(?: \w+){0,4}) w (?'where'.+?)\. W momencie dotyku z ostrza miecza bucha fala ognia, ktora (?'damage'znacznie) parzy tw\w+ przeciwni(?:ka|czke)\.$</string>
 											</regexCodeList>
 											<regexCodePropertyList>
+												<integer>1</integer>
+												<integer>1</integer>
+												<integer>1</integer>
+												<integer>1</integer>
+												<integer>1</integer>
+												<integer>1</integer>
 												<integer>1</integer>
 												<integer>1</integer>
 												<integer>1</integer>
@@ -13382,7 +13394,7 @@ scripts.misc.knowledge:stop_reading_library()</script>
 									<regexCodeList>
 										<string>^(?'attacker'\w+(?: \w+){0,4}?) (?'damage'ledwo muska|lekko rani|bardzo ciezko rani|powaznie rani|rani|masakruje|smiertelnie rani) (?'target'cie) (?'weapon'.+?), trafiajac cie w (?'where'.*)\.$</string>
 										<string>^(?'attacker'\w+(?: \w+){0,4}?) (?'damage'ledwo muska|lekko rani|bardzo ciezko rani|powaznie rani|rani|masakruje|smiertelnie rani) (?'target_weapon'.+?), trafiajac (?:go|ja|je) w (?'where'.*)\.$</string>
-										<string>^(\S+(?:\s+\S+){0,3})\s+nie\s+udaje\s+sie\s+trafic\s+(\S+(?:\s+\S+){0,3})\s+((?:lewym|lewa|prawym|prawa)\s+\S+|\S+(?:\s+\S+){2,3})\.$</string>
+										<string>^(\S+(?:\s+\S+){0,3})\s+nie\s+udaje\s+sie\s+trafic\s+(\S+(?:\s+\S+){0,3})\s+((?:lewym|lewa|prawym|prawa)\s+\S+|\S+(?:\s+\S+){0,3})\.$</string>
 									</regexCodeList>
 									<regexCodePropertyList>
 										<integer>1</integer>
@@ -17005,6 +17017,7 @@ scripts.misc.knowledge:stop_reading_library()</script>
 										<string>Szkarlatne luski dzwiecza cicho, gdy oslaniasz sie swoja rogata tarcza przed uderzeniem</string>
 										<string>w ciebie, lecz widmowe pedy wyrastajace nagle z okraglego migotliwego puklerza zatrzymuja ten cios.</string>
 										<string>jednak udaje ci sie (?:sparowac ten cios|zablokowac ten atak)</string>
+										<string>lecz ty odpychasz (?:go|ja) .+? tarcza\.$</string>
 									</regexCodeList>
 									<regexCodePropertyList>
 										<integer>1</integer>
@@ -17013,6 +17026,7 @@ scripts.misc.knowledge:stop_reading_library()</script>
 										<integer>0</integer>
 										<integer>2</integer>
 										<integer>0</integer>
+										<integer>1</integer>
 										<integer>1</integer>
 									</regexCodePropertyList>
 								</Trigger>
@@ -17165,11 +17179,13 @@ scripts.misc.knowledge:stop_reading_library()</script>
 										<string>w (?!ciebie).+?, lecz widmowe pedy wyrastajace nagle z okraglego migotliwego puklerza zatrzymuja ten cios\.$</string>
 										<string>naciera na (?!ciebie).+?, lecz jego .+? z hukiem trafia w</string>
 										<string>nadstawia .+?, zbijajac uderzenie</string>
+										<string>lecz (?:ten|ta) odpycha (?:go|ja) .+? tarcza\.$</string>
 									</regexCodeList>
 									<regexCodePropertyList>
 										<integer>1</integer>
 										<integer>1</integer>
 										<integer>2</integer>
+										<integer>1</integer>
 										<integer>1</integer>
 										<integer>1</integer>
 										<integer>1</integer>
@@ -17914,8 +17930,10 @@ scripts.misc.knowledge:stop_reading_library()</script>
 								<colorTriggerBgColor>#000000</colorTriggerBgColor>
 								<regexCodeList>
 									<string>^Nagle (?'attacker'\w+(?: \w+){0,4}) wykonuje zamaszysty cios (?'weapon'.+?), ktory (?'damage'ledwo muska|lekko rani|bardzo ciezko rani|powaznie rani|rani|masakruje|niemal smiertelnie rani|smiertelnie rani) (?'target'.+?) w (?'where'.*)\.$</string>
+									<string>^(?:Nagle )?(?'attacker'\w+(?: \w+){0,4}) wzbija sie w powietrze i(?'weapon'.+?) (?'damage'ledwo muska|lekko rani|bardzo ciezko rani|powaznie rani|rani|masakruje|niemal smiertelnie rani|smiertelnie rani) (?'target'.+?) w (?'where'.*)\.$</string>
 								</regexCodeList>
 								<regexCodePropertyList>
+									<integer>1</integer>
 									<integer>1</integer>
 								</regexCodePropertyList>
 							</Trigger>
@@ -23380,6 +23398,26 @@ trigger_func_skrypty_ui_misc_ptakopodobny_inkantuje()</script>
 						<colorTriggerBgColor>#000000</colorTriggerBgColor>
 						<regexCodeList>
 							<string>zaczyna schodzic z kutra.</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>0</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>zejdz_z_pomostu</name>
+						<script>trigger_func_skrypty_ui_special_exits_follow("zejdz z pomostu")</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand></mCommand>
+						<packageName></packageName>
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile></mSoundFile>
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>zeskakuje z pomostu ku zaroslom.</string>
 						</regexCodeList>
 						<regexCodePropertyList>
 							<integer>0</integer>
