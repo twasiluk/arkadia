@@ -146,8 +146,20 @@ function reload_single_script(path)
     end
 end
 
+-- /reload2 (regex /reload lapie go jako "/reload 2")
+local reload2_scripts = {
+    "skrypty/transport/podroz",
+    "skrypty/packages/kurier",
+    "skrypty/transport/trasa",
+    "skrypty/packages/paczka",
+}
+
 function alias_func_reload()
-    if matches[2] == "" then
+    if matches[2] == "2" then
+        for _, path in ipairs(reload2_scripts) do
+            reload_single_script(path)
+        end
+    elseif matches[2] == "" then
         package.loaded.init = nil
         require("init")
         load_scripts(true)
