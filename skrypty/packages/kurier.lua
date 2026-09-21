@@ -140,19 +140,58 @@ local function first_offer()
     return best_index, best
 end
 
+-- miasto = nazwa obszaru mapy (jak ostatni matcher scripts.trasa:resolve)
+local function room_city(room)
+    local area = room and room ~= -1 and getRoomArea(room)
+    return area and getRoomAreaName(area) or nil
+end
+
+local function in_city(room, city)
+    local area = room_city(room)
+    return area and string.find(string.lower(area), string.lower(city), 1, true) ~= nil
+end
+
+-- lokacja adresata: asystent paczek, potem npc.json/baza/nazwa lokacji
+-- (/paczka); kilka lokacji -> te w miescie z tablicy, bez miasta na
+-- tablicy -> w aktualnym miescie; z pozostalych najblizsza
+function ku:resolve_location(offer)
+    if offer.location and offer.location ~= -1 then return offer.location end
+    local lookup = scripts.packages.lookup
+    local rooms = lookup and lookup:find_rooms(offer.name) or {}
+    if #rooms == 0 then return nil, "nie znam lokacji adresata: " .. offer.name end
+    if #rooms == 1 then return rooms[1] end
+
+    local city = offer.city or room_city(current_room())
+    if not city then return nil, "adresat w " .. #rooms .. " lokacjach, nie znam miasta: " .. offer.name end
+    local candidates = {}
+    for _, room in ipairs(rooms) do
+        if in_city(room, city) then table.insert(candidates, room) end
+    end
+    if #candidates == 0 then
+        return nil, "adresat w " .. #rooms .. " lokacjach, zadna w " .. city .. ": " .. offer.name
+    end
+
+    local from = current_room()
+    local best, best_steps
+    for _, room in ipairs(candidates) do
+        local steps = room == from and 0 or (getPath(from, room) and #speedWalkPath)
+        if steps and (not best_steps or steps < best_steps) then best, best_steps = room, steps end
+    end
+    return best or candidates[1]
+end
+
 function ku:pick_package()
     local index, offer = first_offer()
     if not offer then return self:stop("brak pierwszej paczki na tablicy") end
     if not offer.name then return self:stop("paczka bez adresata") end
-    if not offer.location or offer.location == -1 then
-        return self:stop("nie znam lokacji adresata: " .. offer.name)
-    end
+    local room, err = self:resolve_location(offer)
+    if not room then return self:stop(err) end
 
-    local plan = self:plan_route(offer.location)
+    local plan = self:plan_route(room)
     if not plan then return end
 
-    self.package = { name = offer.name, room = offer.location, plan = plan }
-    print_log("<green>paczka " .. index .. ": " .. offer.name .. " -> " .. offer.location .. " (" .. plan.label .. ")")
+    self.package = { name = offer.name, room = room, plan = plan }
+    print_log("<green>paczka " .. index .. ": " .. offer.name .. " -> " .. room .. " (" .. plan.label .. ")")
 
     self:clear_waiting()
     self:watch("^.* przekazuje ci jakas paczke\\.", function()
