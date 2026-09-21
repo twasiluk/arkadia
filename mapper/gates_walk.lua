@@ -5,6 +5,7 @@
 --  "gate" lub amap.id_to_open_gate). Przed takim krokiem chodzik stuka,
 --  czeka 1-3 s i idzie dalej. Bez zmian w walker.lua: opakowanie
 --  amap:auto_walker, pauza w amap.walker_timer_id (kasuje ja /stop i blokery).
+--  Brama nieoznaczona: po odbiciu stuka i wznawia /gnaj (gw:gate_stopped).
 -- ============================================================
 
 amap.gates_walk = amap.gates_walk or {}
@@ -56,8 +57,39 @@ function amap:auto_walker()
 end
 
 function gw:reset()
+    if amap.walker_gates then self.stopped_at = getEpoch() end
     amap.walker_gates = false
     self.path, self.knocked, self.pending_dest = nil, nil, nil
+end
+
+-- brama bez oznaczenia na mapie: walker staje na "Probujesz otworzyc ...",
+-- bloker cofa i przerywa. Wtedy stukamy (amap.gate_bind z mapper/gates.lua)
+-- i ruszamy /gnaj do tego samego celu - raz na lokacje. Trigger bramy
+-- bywa przed albo po przerwaniu (amapGateStoppedWalker / amapGateStopped),
+-- stad okno czasu po przerwaniu i odlozone wznowienie.
+function gw:gate_stopped()
+    if not self.walk then return end
+    local recent = self.stopped_at and getEpoch() - self.stopped_at < 1
+    if not (amap.walker_gates or recent) then return end
+    if self.resume_timer then return end
+    self.resume_timer = tempTimer(0.5, function() gw:resume() end)
+end
+
+function gw:resume()
+    self.resume_timer = nil
+    local walk = self.walk
+    if not walk or amap.walker then return end
+    local room = amap.curr.id
+    if walk.knocked[room] then
+        amap:print_log("brama nadal zamknieta - /gnaj " .. walk.dest .. " wstrzymane")
+        self.walk = nil
+        return
+    end
+    walk.knocked[room] = true
+    self.start_timer = self:knock(amap.gate_bind or "zastukaj we wrota", function()
+        gw.start_timer = nil
+        gw:go(tostring(walk.dest), walk.delay, true)
+    end)
 end
 
 -- flaga dopiero, gdy chodzik naprawde ruszyl do celu z /gnaj
@@ -67,7 +99,7 @@ function gw:started()
 end
 
 -- /gnaj <id|skrot> [opoznienie]
-function gw:go(target, delay)
+function gw:go(target, delay, resume)
     if amap.walker then
         amap:print_log("Chodzik aktualnie pracuje, najpierw zastopuj uzywajac '/stop'")
         return
@@ -88,6 +120,7 @@ function gw:go(target, delay)
         return
     end
 
+    if not resume then self.walk = { dest = room, delay = delay, knocked = {} } end
     local start = amap.curr.id
     self.path = { [0] = start }
     for i, id in ipairs(speedWalkPath) do self.path[i] = tonumber(id) end
@@ -112,9 +145,13 @@ function gw:init()
     self.handler_started = scripts.event_register:force_register_event_handler(self.handler_started,
         "amapWalkerStarted", function() gw:started() end)
     self.handler_finished = scripts.event_register:force_register_event_handler(self.handler_finished,
-        "amapWalkerFinished", function() gw:reset() end)
+        "amapWalkerFinished", function() gw:reset(); gw.walk = nil end)
     self.handler_terminated = scripts.event_register:force_register_event_handler(self.handler_terminated,
         "amapWalkerTerminated", function() gw:reset() end)
+    self.handler_gate = scripts.event_register:force_register_event_handler(self.handler_gate,
+        "amapGateStoppedWalker", function() gw:gate_stopped() end)
+    self.handler_gate_idle = scripts.event_register:force_register_event_handler(self.handler_gate_idle,
+        "amapGateStopped", function() gw:gate_stopped() end)
     if self.alias then killAlias(self.alias) end
     self.alias = tempAlias("^/gnaj (\\S+)(?: (\\d+|\\d+\\.\\d+))?$", function()
         gw:go(matches[2], matches[3])
