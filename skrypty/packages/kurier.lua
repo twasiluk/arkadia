@@ -84,8 +84,11 @@ end
 function ku:nearest_post()
     local from = current_room()
     if not from or from == -1 then return nil end
+    if room_is_post(from) then return from, 0 end
+    local found = searchRoom("poczta", false, false)
+    if type(found) ~= "table" then return nil end
     local best, best_steps
-    for room in pairs(searchRoom("poczta", false, true) or {}) do
+    for room in pairs(found) do
         room = tonumber(room)
         if room and room ~= -1 and room_is_post(room) then
             local steps = room == from and 0 or (getPath(from, room) and #speedWalkPath)
