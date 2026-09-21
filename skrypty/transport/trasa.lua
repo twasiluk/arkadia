@@ -352,8 +352,15 @@ function scripts.trasa:show(from_text, to_text)
         -- bez pojazdu: sam chodzik do celu
         commands = { "/gnaj " .. legs[#legs].to }
     end
+    local suggested
     for _, command in ipairs(commands) do
         if command:sub(1, 1) == "/" then
+            if not suggested then
+                -- pierwsza komenda do linii polecen: Enter rusza w droge;
+                -- timer, bo Mudlet czysci linie po wpisanym aliasie
+                suggested = command
+                tempTimer(0, function() printCmdLine(command) end)
+            end
             echo(" ")
             cechoLink("<cyan>" .. command .. "<reset>", function() expandAlias(command) end, command, true)
             echo("\n")
