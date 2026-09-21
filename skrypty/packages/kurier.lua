@@ -1,0 +1,325 @@
+-- ============================================================
+--  /kurier [n] - petla kurierska: poczta -> pierwsza paczka z tablicy
+--  -> podroz do adresata -> "daj paczke <imie w celowniku>".
+--  Kazdy etap poprzedza losowa zwloka (delay_min..delay_max).
+--  Kazdy problem lub niejednoznacznosc konczy petle.
+-- ============================================================
+
+scripts.kurier = scripts.kurier or {
+    aliases = {},
+    triggers = {},
+    handlers = {},
+    timers = {},
+}
+
+local ku = scripts.kurier
+
+local delay_min, delay_max = 3, 9
+local walk_limit = 30        -- pieszo do adresata bez szukania polaczenia
+local board_timeout = 20     -- czekanie na tablice z przesylkami
+local pickup_timeout = 20    -- czekanie na wydanie paczki
+local travel_timeout = 1800  -- czekanie na dotarcie do adresata
+local reply_timeout = 10     -- czekanie na odpowiedz "odmien"
+
+local function print_log(msg)
+    cecho("\n<CadetBlue>(kurier)<reset>: " .. msg .. "\n")
+end
+
+-- ---------- sprzatanie ----------
+function ku:clear_waiting()
+    for _, id in ipairs(self.triggers) do killTrigger(id) end
+    for _, id in ipairs(self.timers) do killTimer(id) end
+    for _, id in ipairs(self.handlers) do killAnonymousEventHandler(id) end
+    self.triggers, self.timers, self.handlers = {}, {}, {}
+end
+
+function ku:stop(msg, color)
+    self:clear_waiting()
+    self.running = nil
+    self.left = nil
+    self.package = nil
+    if msg then print_log("<" .. (color or "tomato") .. ">" .. msg) end
+end
+
+-- ---------- pomocniki ----------
+-- kolejny etap po losowej zwloce
+function ku:next(what, callback)
+    if not self.running then return end
+    local delay = delay_min + math.random() * (delay_max - delay_min)
+    print_log(string.format("<DimGrey>%s za %.1f s", what, delay))
+    table.insert(self.timers, tempTimer(delay, function()
+        if ku.running then callback() end
+    end))
+end
+
+function ku:watch(pattern, callback)
+    table.insert(self.triggers, tempRegexTrigger(pattern, callback))
+end
+
+function ku:deadline(seconds, msg)
+    table.insert(self.timers, tempTimer(seconds, function() ku:stop(msg) end))
+end
+
+-- chodzik skonczony i postac stoi w oczekiwanej lokacji
+function ku:on_arrival(room, callback)
+    table.insert(self.handlers, registerAnonymousEventHandler("amapWalkerFinished", function()
+        if not ku.running then return end
+        if amap.curr.id == room then
+            ku:clear_waiting()
+            callback()
+        end
+    end))
+end
+
+local function current_room()
+    return amap and amap.curr and amap.curr.id
+end
+
+local function room_is_post(room)
+    local name = room and room ~= -1 and getRoomName(room)
+    return name and string.find(string.lower(name), "poczta", 1, true) ~= nil
+end
+
+-- ---------- etap 1: najblizsza poczta ----------
+function ku:nearest_post()
+    local from = current_room()
+    if not from or from == -1 then return nil end
+    local best, best_steps
+    for room in pairs(searchRoom("poczta", false, true) or {}) do
+        room = tonumber(room)
+        if room and room ~= -1 and room_is_post(room) then
+            local steps = room == from and 0 or (getPath(from, room) and #speedWalkPath)
+            if steps and (not best_steps or steps < best_steps) then
+                best, best_steps = room, steps
+            end
+        end
+    end
+    return best, best_steps
+end
+
+function ku:goto_post()
+    local room, steps = self:nearest_post()
+    if not room then return self:stop("nie znalazlem poczty na mapie") end
+    if steps == 0 then
+        print_log("<DimGrey>juz na poczcie " .. room)
+        return self:next("tablica", function() ku:read_board() end)
+    end
+    print_log(string.format("<green>poczta %d (%d krokow)", room, steps))
+    self:clear_waiting()
+    self:on_arrival(room, function() ku:next("tablica", function() ku:read_board() end) end)
+    self:deadline(travel_timeout, "nie dotarlem na poczte")
+    expandAlias("/gnaj " .. room, true)
+end
+
+-- ---------- etap 2: tablica z przesylkami ----------
+function ku:read_board()
+    self:clear_waiting()
+    -- tablice czyta asystent paczek (scripts.packages), my czekamy na jej koniec
+    self:watch("^ \\|      Symbolem \\* oznaczono", function()
+        ku:clear_waiting()
+        ku:next("wybor paczki", function() ku:pick_package() end)
+    end)
+    self:deadline(board_timeout, "nie doczekalem sie tablicy z przesylkami")
+    send("obejrzyj tablice")
+end
+
+-- ---------- etap 3: pierwsza paczka ----------
+-- indeksy w current_offer trzymane sa tak, jak zlapal je trigger tablicy
+-- (tekst), wiec pierwsza oferta to ta o najmniejszym numerze
+local function first_offer()
+    local best_index, best
+    for index, offer in pairs(scripts.packages.current_offer or {}) do
+        local number = tonumber(index)
+        if number and (not best_index or number < tonumber(best_index)) then
+            best_index, best = index, offer
+        end
+    end
+    return best_index, best
+end
+
+function ku:pick_package()
+    local index, offer = first_offer()
+    if not offer then return self:stop("brak pierwszej paczki na tablicy") end
+    if not offer.name then return self:stop("paczka bez adresata") end
+    if not offer.location or offer.location == -1 then
+        return self:stop("nie znam lokacji adresata: " .. offer.name)
+    end
+
+    local plan = self:plan_route(offer.location)
+    if not plan then return end
+
+    self.package = { name = offer.name, room = offer.location, plan = plan }
+    print_log("<green>paczka " .. index .. ": " .. offer.name .. " -> " .. offer.location .. " (" .. plan.label .. ")")
+
+    self:clear_waiting()
+    self:watch("^.* przekazuje ci jakas paczke\\.", function()
+        ku:clear_waiting()
+        ku:next("podroz", function() ku:travel() end)
+    end)
+    self:watch("Ty juz dla nas dostatecznie ciezko zapracowales"
+        .. "|Nie ufam ci na tyle, aby powierzyc ci dostarczenie tej przesylki"
+        .. "|Cos ci sie chyba pomylilo, nie ma takiej oferty"
+        .. "|Niestety, nie widzisz tu nikogo, od kogo mozna by wziac zlecenie"
+        .. "|Lista przesylek zmienila sie", function()
+        ku:stop("poczta nie wydala paczki")
+    end)
+    self:deadline(pickup_timeout, "nie doczekalem sie paczki")
+    send("wybierz paczke " .. index)
+end
+
+-- ---------- trasa do adresata ----------
+-- pieszo ponizej walk_limit krokow albo najwyzej jeden odcinek dylizansem/wozem
+function ku:plan_route(room)
+    local from = current_room()
+    if not from or from == -1 then
+        self:stop("nieznana aktualna lokacja")
+        return nil
+    end
+    if not roomExists(room) then
+        self:stop("lokacja adresata nie istnieje na mapie: " .. room)
+        return nil
+    end
+
+    local steps = room == from and 0 or (getPath(from, room) and #speedWalkPath)
+    if steps and steps < walk_limit then
+        return { commands = { "/gnaj " .. room }, label = steps .. " krokow pieszo" }
+    end
+
+    local trasa = scripts.trasa
+    if not trasa then
+        self:stop("brak skryptu trasy")
+        return nil
+    end
+    if not trasa.rides then trasa:build() end
+
+    local sources = trasa:resolve(tostring(from))
+    local targets, _, to_room = trasa:resolve(tostring(room), true)
+    if not sources or not next(sources) then
+        self:stop("brak przystanku w zasiegu poczty")
+        return nil
+    end
+    if not targets or not next(targets) then
+        self:stop("brak przystanku w zasiegu adresata")
+        return nil
+    end
+
+    local edges = trasa:find(sources, targets)
+    if not edges then
+        self:stop("brak polaczenia do " .. room)
+        return nil
+    end
+    local legs = trasa:legs(edges, to_room)
+
+    local rides = {}
+    for _, leg in ipairs(legs) do
+        if leg.kind == "ride" then table.insert(rides, leg) end
+    end
+    if #rides > 1 then
+        self:stop("trasa wymaga " .. #rides .. " przesiadek")
+        return nil
+    end
+    if #rides == 1 and rides[1].route.type ~= "dylizans" then
+        self:stop("trasa wymaga innego pojazdu niz dylizans/woz: " .. rides[1].route.type)
+        return nil
+    end
+
+    local commands = trasa:podroz_commands(legs)
+    if #commands ~= 1 then
+        self:stop("trasa nie miesci sie w jednej komendzie /podroz")
+        return nil
+    end
+    if commands[1]:sub(1, 1) ~= "/" then
+        self:stop("trasa wymaga recznej wysiadki")
+        return nil
+    end
+    return { commands = commands, label = #rides == 1 and rides[1].route.name or "pieszo" }
+end
+
+-- ---------- etap 4: podroz ----------
+function ku:travel()
+    local package = self.package
+    self:clear_waiting()
+    if current_room() == package.room then
+        return self:next("przedstawienie sie", function() ku:introduce() end)
+    end
+    self:on_arrival(package.room, function()
+        ku:next("przedstawienie sie", function() ku:introduce() end)
+    end)
+    self:deadline(travel_timeout, "nie dotarlem do adresata")
+    expandAlias(package.plan.commands[1], true)
+end
+
+-- ---------- etap 5: przedstawienie sie ----------
+function ku:introduce()
+    send("przedstaw sie")
+    self:next("odmiana imienia", function() ku:decline() end)
+end
+
+-- ---------- etap 6: odmien <imie> -> celownik ----------
+function ku:decline()
+    local first_name = string.match(self.package.name, "^%S+")
+    if not first_name then return self:stop("nie znam imienia adresata") end
+    self:clear_waiting()
+    self:watch("^\\s*[Cc]elownik\\s*:?\\s*(.+)$", function()
+        local form = string.trim(matches[2] or "")
+        form = form:gsub("[%.!,;]+$", "")
+        form = string.match(form, "^%S+")
+        if not form or form == "" then return ku:stop("nie odczytalem celownika") end
+        ku:clear_waiting()
+        ku.package.dative = string.lower(form)
+        ku:next("oddanie paczki", function() ku:deliver() end)
+    end)
+    self:deadline(reply_timeout, "brak odmiany imienia " .. first_name)
+    send("odmien " .. first_name)
+end
+
+-- ---------- etap 7: oddanie paczki ----------
+function ku:deliver()
+    self:clear_waiting()
+    self:watch("^Oddajesz pocztowa paczke", function()
+        ku:clear_waiting()
+        ku:finish_round()
+    end)
+    self:deadline(reply_timeout * 3, "paczka nie zostala oddana")
+    send("daj paczke " .. self.package.dative)
+end
+
+function ku:finish_round()
+    self.package = nil
+    self.left = (self.left or 1) - 1
+    if self.left <= 0 then
+        return self:stop("gotowe", "green")
+    end
+    print_log("<green>zostalo kursow: " .. self.left)
+    self:next("nastepny kurs", function() ku:goto_post() end)
+end
+
+-- ---------- sterowanie ----------
+function ku:run(count)
+    if self.running then return print_log("<tomato>kurier juz dziala (/kurier stop)") end
+    self.running = true
+    self.left = count or 1
+    self.package = nil
+    print_log("<green>start, kursow: " .. self.left)
+    self:next("droga na poczte", function() ku:goto_post() end)
+end
+
+local aliases = {
+    ["^/kurier(?: (\\d+))?$"] = function()
+        scripts.kurier:run(tonumber(matches[2]) or 1)
+    end,
+    ["^/kurier stop$"] = function()
+        scripts.kurier:stop("przerwane")
+    end,
+}
+
+function ku:init()
+    for _, id in ipairs(self.aliases) do killAlias(id) end
+    self.aliases = {}
+    self:clear_waiting()
+    for regex, callback in pairs(aliases) do
+        table.insert(self.aliases, tempAlias(regex, callback))
+    end
+end
+
+ku:init()
