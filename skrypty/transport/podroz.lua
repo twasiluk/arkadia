@@ -361,6 +361,9 @@ local tail = "(?: [a-z]+)*\\.$"
 local vehicle_lines = {
     ["[Ww]siadasz (?:do|na) .*(?:dylizansu?|(?:po)?wozu?)" .. tail] = "dylizans",
     ["wspinasz sie na .*(?:dylizans|(?:po)?woz)" .. tail]           = "dylizans",
+    -- "...po stopniach wchodzisz do kupieckiego stojacego wozu i siadasz tuz
+    -- za kozlem." - po rzeczowniku dalsza czesc zdania, stad bez kotwicy konca
+    ["[Ww]chodzisz do .*(?:dylizansu|(?:po)?wozu)\\b"]            = "dylizans",
     -- same "Wchodzisz na .+" lapaloby tez drzewa, mury itp. (i gralo dzwiek)
     ["^Wchodzisz na (?:poklad .+|.*(?:statek|okret|prom|barke|barkasa|feluke|skeid|tratwe|bryg|drakkar|szkute|buzar|knare|galere|galeon|lodz|lodke|kog|karake|karawele|kuter))" .. tail] = "statek",
 }
