@@ -5,6 +5,9 @@
 --  belka na dole bierze "Walka: on/off" (skrypty/character/combat_state.lua).
 --  Event leci tylko na zmianie stanu, wiec kolejne ataki w trakcie walki
 --  nie przerywaja utworu. Koniec walki przed czasem = stopSounds().
+--
+--  Dodatkowo spadek zdrowia (gmcp.char.state.hp, 6 = pelne ... 0) na
+--  poziom HURT_MAX lub nizej gra krotki dzwiek "ala" - rownolegle z utworem.
 -- ============================================================
 
 scripts.walka_dzwiek = scripts.walka_dzwiek or {
@@ -16,6 +19,8 @@ scripts.walka_dzwiek = scripts.walka_dzwiek or {
 
 local SOUND = "dbz-attack.mp3"   -- w getMudletHomeDir()/sounds
 local LENGTH = 36                -- dlugosc pliku w sekundach
+local HURT_SOUND = "charlie-that-hurts.mp3"
+local HURT_MAX = 4               -- spadek na 5 jeszcze nie gra
 
 local function print_log(msg)
     cecho("\n<CadetBlue>(walka_dzwiek)<reset>: " .. msg .. "\n")
@@ -58,6 +63,23 @@ function scripts.walka_dzwiek:stop()
     end
 end
 
+-- gmcp przysyla tylko zmienione wartosci - bez "hp" nic sie nie zmienilo
+function scripts.walka_dzwiek:check_hp()
+    local hp = gmcp.char and gmcp.char.state and tonumber(gmcp.char.state.hp)
+    if not hp then return end
+
+    local last = self.last_hp
+    self.last_hp = hp
+    if not self.enabled or not last or hp >= last or hp > HURT_MAX then return end
+
+    local path = getMudletHomeDir() .. "/sounds/" .. HURT_SOUND
+    if lfs.attributes(path) then
+        playSoundFile(path)
+    else
+        print_log("<DimGrey>brak pliku dzwieku " .. path)
+    end
+end
+
 function scripts.walka_dzwiek:switch(on)
     self.enabled = on
     if not on then self:stop() end
@@ -72,6 +94,7 @@ local handlers = {
             scripts.walka_dzwiek:stop()
         end
     end,
+    ["gmcp.char.state"] = function() scripts.walka_dzwiek:check_hp() end,
 }
 
 local aliases = {
