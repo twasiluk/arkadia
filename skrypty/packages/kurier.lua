@@ -299,10 +299,11 @@ end
 
 -- ---------- etap 6: odmien <imie> -> celownik ----------
 function ku:decline()
-    local first_name = string.match(self.package.name, "^%S+")
+    local first_name = string.match(self.package.name, "^[^%s,]+")
     if not first_name then return self:stop("nie znam imienia adresata") end
     self:clear_waiting()
-    self:watch("^\\s*[Cc]elownik\\s*:?\\s*(.+)$", function()
+    -- "   Celownik: Dolbrumowi," - wiersze wyrownane spacjami do prawej
+    self:watch("^\\s*Celownik: (.+)$", function()
         local form = string.trim(matches[2] or "")
         form = form:gsub("[%.!,;]+$", "")
         form = string.match(form, "^%S+")
@@ -312,7 +313,7 @@ function ku:decline()
         ku:next("oddanie paczki", function() ku:deliver() end)
     end)
     self:deadline(reply_timeout, "brak odmiany imienia " .. first_name)
-    send("odmien " .. first_name)
+    send("odmien " .. string.lower(first_name))
 end
 
 -- ---------- etap 7: oddanie paczki ----------
