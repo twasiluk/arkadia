@@ -424,7 +424,8 @@ function ku:run(count)
     self.left = count or 1
     self.package = nil
     print_log("<green>start, kursow: " .. self.left)
-    self:next("sprawdzenie paczki", function() ku:check_package() end)
+    self.stage = { name = "sprawdzenie paczki", at = os.time() }
+    self:check_package()
 end
 
 -- ---------- /kurier stan ----------
