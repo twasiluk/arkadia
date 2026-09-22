@@ -23,8 +23,20 @@ local travel_timeout = 1800  -- czekanie na dotarcie do adresata
 local reply_timeout = 10     -- czekanie na odpowiedz "odmien"
 local check_timeout = 5      -- czekanie na napis na paczce ("ob paczke")
 
+local package_sound = "w10-usb-in.mp3"  -- paczka w rekach (odbior / "ob paczke")
+
 local function print_log(msg)
     cecho("\n<CadetBlue>(kurier)<reset>: " .. msg .. "\n")
+end
+
+-- jak scripts.podroz:play - plik z <katalog Mudleta>/sounds
+local function play_sound(file)
+    local path = getMudletHomeDir() .. "/sounds/" .. file
+    if lfs.attributes(path) then
+        playSoundFile(path)
+    else
+        print_log("<DimGrey>brak pliku dzwieku " .. path)
+    end
 end
 
 -- ---------- sprzatanie ----------
@@ -215,6 +227,7 @@ function ku:pick_package()
     self:clear_waiting()
     self:watch("^.* przekazuje ci jakas paczke\\.", function()
         ku:clear_waiting()
+        play_sound(package_sound)
         ku:next("podroz", function() ku:travel() end)
     end)
     self:watch("Ty juz dla nas dostatecznie ciezko zapracowales"
@@ -235,6 +248,7 @@ function ku:check_package()
     self:clear_waiting()
     self:watch("^Wypisano na niej duzymi literami: (.+)$", function()
         ku:clear_waiting()
+        play_sound(package_sound)
         ku:resume_package(matches[2])
     end)
     table.insert(self.timers, tempTimer(check_timeout, function()
