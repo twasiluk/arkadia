@@ -3,6 +3,7 @@
 --    /qk <pole-id> [...]  - zabijanie snotlingow na polach
 --    /sz <pole-id> [...]  - szukanie ziol na polach
 --    /rec                 - nagrywanie odwiedzonych lokacji
+--    /queue <komendy>     - komendy po kolei, z opoznieniem
 -- ============================================================
 
 scripts.helper = scripts.helper or {
@@ -533,12 +534,44 @@ function scripts.helper.sloik_alias()
 end
 
 -- ============================================================
+--  queue - komendy po kolei, co zadany czas
+--  /queue [<opoznienie>] <komenda|.> [...]
+--    liczba - ustawia opoznienie dla kolejnych komend
+--    .      - pusty krok (sam postoj)
+--  np. /queue 10 . 1 n nw e
+-- ============================================================
+
+local QUEUE_DELAY = 3
+local queue_delays = {
+    ["sz"] = 15,
+    ["e"]  = 2,
+    ["w"]  = 2,
+}
+
+function scripts.helper.queue_alias(args)
+    local default_delay = QUEUE_DELAY
+    local offset = 0
+    for _, cmd in ipairs(args:split(" ")) do
+        local n = tonumber(cmd)
+        if n then
+            default_delay = n
+        elseif cmd == "." then
+            offset = offset + (queue_delays[cmd] or default_delay)
+        elseif cmd ~= "" then
+            tempTimer(offset, function() expandAlias(cmd, true) end)
+            offset = offset + (queue_delays[cmd] or default_delay)
+        end
+    end
+end
+
+-- ============================================================
 
 local aliases = {
     ["^/qk (.+)$"] = function() qk.start_alias(matches[2]) end,
     ["^/sz(?: (.+))?$"] = function() sz.start_alias(matches[2]) end,
     ["^/rec(?: (print|stop))?$"] = function() rec.start_alias(matches[2]) end,
     ["^sloik$"] = function() scripts.helper.sloik_alias() end,
+    ["^/queue (.+)$"] = function() scripts.helper.queue_alias(matches[2]) end,
 }
 
 function scripts.helper:init()
