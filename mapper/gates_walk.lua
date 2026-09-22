@@ -121,6 +121,10 @@ function gw:go(target, delay, resume)
     end
 
     if not resume then self.walk = { dest = room, delay = delay, knocked = {} } end
+    -- kroki razy opoznienie chodzika (bez przerw na bramy)
+    local steps = #speedWalkPath
+    local seconds = math.floor(steps * (tonumber(delay) or amap.walker_delay or 0) + 0.5)
+    amap:print_log(string.format("/gnaj %d: %d krokow, %d:%02ds", room, steps, math.floor(seconds / 60), seconds % 60))
     local start = amap.curr.id
     self.path = { [0] = start }
     for i, id in ipairs(speedWalkPath) do self.path[i] = tonumber(id) end
