@@ -345,11 +345,16 @@ function ku:plan_route(room)
 end
 
 -- ---------- etap 4: podroz ----------
--- adresat-instytucja ("BANK WYZIMSKI", "POCZTA W NULN"): bez
--- przedstawiania i odmiany, paczke zostawia sie "oddaj paczke"
+-- adresat-instytucja ("BANK WYZIMSKI", "POCZTA W NULN", "PIEKARNIA ..."):
+-- bez przedstawiania i odmiany, paczke zostawia sie "oddaj paczke"
+local place_prefixes = { "bank", "poczta", "piekarnia" }
+
 local function is_place(name)
     local lowered = string.lower(name or "")
-    return lowered:find("^bank") ~= nil or lowered:find("^poczta") ~= nil
+    for _, prefix in ipairs(place_prefixes) do
+        if lowered:sub(1, #prefix) == prefix then return true end
+    end
+    return false
 end
 
 -- etap po dotarciu do adresata
