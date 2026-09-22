@@ -2,6 +2,7 @@
 --  /kurier [n] - petla kurierska: poczta -> pierwsza paczka z tablicy
 --  -> podroz do adresata -> "daj paczke <imie w celowniku>".
 --  Kazdy etap poprzedza losowa zwloka (delay_min..delay_max).
+--  Na starcie "ob paczke": paczka juz w rekach -> od razu do adresata.
 --  Kazdy problem lub niejednoznacznosc konczy petle.
 -- ============================================================
 
@@ -20,6 +21,7 @@ local board_timeout = 20     -- czekanie na tablice z przesylkami
 local pickup_timeout = 20    -- czekanie na wydanie paczki
 local travel_timeout = 1800  -- czekanie na dotarcie do adresata
 local reply_timeout = 10     -- czekanie na odpowiedz "odmien"
+local check_timeout = 5      -- czekanie na napis na paczce ("ob paczke")
 
 local function print_log(msg)
     cecho("\n<CadetBlue>(kurier)<reset>: " .. msg .. "\n")
@@ -226,6 +228,40 @@ function ku:pick_package()
     send("wybierz paczke " .. index)
 end
 
+-- ---------- etap 0: paczka juz w rekach ----------
+-- "ob paczke" -> napis z adresem -> kurs od podrozy; brak napisu w
+-- check_timeout -> nie mamy paczki, zwykly start od poczty
+function ku:check_package()
+    self:clear_waiting()
+    self:watch("^Wypisano na niej duzymi literami: (.+)$", function()
+        ku:clear_waiting()
+        ku:resume_package(matches[2])
+    end)
+    table.insert(self.timers, tempTimer(check_timeout, function()
+        if not ku.running then return end
+        ku:clear_waiting()
+        ku:goto_post()
+    end))
+    send("ob paczke")
+end
+
+function ku:resume_package(address)
+    local name, city = scripts.packages.lookup:parse_address(address)
+    local offer = { name = name, city = city }
+    -- asystent zapamietal lokacje przy odbiorze tej paczki
+    local picked = scripts.packages.picked_offer
+    if picked and picked.name and string.lower(picked.name) == string.lower(name) then
+        offer.location = picked.location
+    end
+    local room, err = self:resolve_location(offer)
+    if not room then return self:stop("mam paczke, ale " .. err) end
+    local plan = self:plan_route(room)
+    if not plan then return end
+    self.package = { name = name, room = room, plan = plan }
+    print_log("<green>mam paczke: " .. name .. " -> " .. room .. " (" .. plan.label .. ")")
+    self:next("podroz", function() ku:travel() end)
+end
+
 -- ---------- trasa do adresata ----------
 -- pieszo ponizej walk_limit krokow albo najwyzej jeden odcinek dylizansem/wozem
 function ku:plan_route(room)
@@ -361,7 +397,7 @@ function ku:run(count)
     self.left = count or 1
     self.package = nil
     print_log("<green>start, kursow: " .. self.left)
-    self:next("droga na poczte", function() ku:goto_post() end)
+    self:next("sprawdzenie paczki", function() ku:check_package() end)
 end
 
 -- ---------- /kurier stan ----------
