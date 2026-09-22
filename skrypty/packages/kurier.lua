@@ -69,9 +69,10 @@ end
 -- leci takt chodzika po wyslaniu ostatniego kroku, czesto zanim mapper
 -- zmieni lokacje - wtedy dojscie lapie dopiero amapNewLocation
 function ku:on_arrival(room, callback)
+    room = tonumber(room)
     local function check()
         if not ku.running or amap.walker then return end
-        if amap.curr.id == room then
+        if tonumber(amap.curr.id) == room then
             ku:clear_waiting()
             callback()
         end
@@ -169,7 +170,9 @@ end
 -- (/paczka); kilka lokacji -> te w miescie z tablicy, bez miasta na
 -- tablicy -> w aktualnym miescie; z pozostalych najblizsza
 function ku:resolve_location(offer)
-    if offer.location and offer.location ~= -1 then return offer.location end
+    -- baza asystenta trzyma room_id jako string ("1279" ~= 1279)
+    local location = tonumber(offer.location)
+    if location and location ~= -1 then return location end
     local lookup = scripts.packages.lookup
     local rooms = lookup and lookup:find_rooms(offer.name) or {}
     if #rooms == 0 then return nil, "nie znam lokacji adresata: " .. offer.name end
@@ -295,7 +298,7 @@ end
 function ku:travel()
     local package = self.package
     self:clear_waiting()
-    if current_room() == package.room then
+    if tonumber(current_room()) == package.room then
         return self:next("przedstawienie sie", function() ku:introduce() end)
     end
     self:on_arrival(package.room, function()
@@ -362,7 +365,9 @@ function ku:run(count)
 end
 
 -- ---------- /kurier stan ----------
+-- stringi w cudzyslowie: widac "1279" vs 1279
 local function show(value)
+    if type(value) == "string" then return string.format("%q", value) end
     if type(value) ~= "table" then return tostring(value) end
     local parts = {}
     for k, v in pairs(value) do table.insert(parts, tostring(k) .. "=" .. show(v)) end
@@ -387,7 +392,8 @@ function ku:state()
     }
     print_log("<CadetBlue>stan")
     for _, line in ipairs(lines) do
-        cecho(string.format("  <DimGrey>%s:<reset> %s\n", line[1], show(line[2])))
+        local value = type(line[2]) == "string" and line[2] or show(line[2])
+        cecho(string.format("  <DimGrey>%s:<reset> %s\n", line[1], value))
     end
     for _, pattern in ipairs(self.watching or {}) do
         cecho("  <DimGrey>watch:<reset> ")
