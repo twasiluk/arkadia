@@ -345,15 +345,28 @@ function ku:plan_route(room)
 end
 
 -- ---------- etap 4: podroz ----------
+-- adresat-instytucja ("BANK WYZIMSKI", "POCZTA W NULN"): bez
+-- przedstawiania i odmiany, paczke zostawia sie "oddaj paczke"
+local function is_place(name)
+    local lowered = string.lower(name or "")
+    return lowered:find("^bank") ~= nil or lowered:find("^poczta") ~= nil
+end
+
+-- etap po dotarciu do adresata
+function ku:at_recipient()
+    if is_place(self.package.name) then
+        return self:next("oddanie paczki", function() ku:deliver("oddaj paczke") end)
+    end
+    self:next("przedstawienie sie", function() ku:introduce() end)
+end
+
 function ku:travel()
     local package = self.package
     self:clear_waiting()
     if tonumber(current_room()) == package.room then
-        return self:next("przedstawienie sie", function() ku:introduce() end)
+        return self:at_recipient()
     end
-    self:on_arrival(package.room, function()
-        ku:next("przedstawienie sie", function() ku:introduce() end)
-    end)
+    self:on_arrival(package.room, function() ku:at_recipient() end)
     self:deadline(travel_timeout, "nie dotarlem do adresata")
     expandAlias(package.plan.commands[1], true)
 end
@@ -377,21 +390,21 @@ function ku:decline()
         if not form or form == "" then return ku:stop("nie odczytalem celownika") end
         ku:clear_waiting()
         ku.package.dative = string.lower(form)
-        ku:next("oddanie paczki", function() ku:deliver() end)
+        ku:next("oddanie paczki", function() ku:deliver("daj paczke " .. ku.package.dative) end)
     end)
     self:deadline(reply_timeout, "brak odmiany imienia " .. first_name)
     send("odmien " .. string.lower(first_name))
 end
 
 -- ---------- etap 7: oddanie paczki ----------
-function ku:deliver()
+function ku:deliver(command)
     self:clear_waiting()
     self:watch("^Oddajesz pocztowa paczke", function()
         ku:clear_waiting()
         ku:finish_round()
     end)
     self:deadline(reply_timeout * 3, "paczka nie zostala oddana")
-    send("daj paczke " .. self.package.dative)
+    send(command)
 end
 
 function ku:finish_round()
