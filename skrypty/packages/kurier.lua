@@ -274,7 +274,7 @@ function ku:resume_package(address)
     end
     local room, err = self:resolve_location(offer)
     if not room then return self:stop("mam paczke, ale " .. err) end
-    local plan = self:plan_route(room)
+    local plan = self:plan_route(room, true)
     if not plan then return end
     self.package = { name = name, room = room, plan = plan }
     print_log("<green>mam paczke: " .. name .. " -> " .. room .. " (" .. plan.label .. ")")
@@ -282,8 +282,9 @@ function ku:resume_package(address)
 end
 
 -- ---------- trasa do adresata ----------
--- pieszo ponizej walk_limit krokow albo najwyzej jeden odcinek dylizansem/wozem
-function ku:plan_route(room)
+-- pieszo ponizej walk_limit krokow albo najwyzej jeden odcinek dylizansem/wozem;
+-- held = paczka juz w rekach, trzeba ja dostarczyc - wtedy bez limitu przesiadek
+function ku:plan_route(room, held)
     local from = current_room()
     if not from or from == -1 then
         self:stop("nieznana aktualna lokacja")
@@ -328,13 +329,17 @@ function ku:plan_route(room)
     for _, leg in ipairs(legs) do
         if leg.kind == "ride" then table.insert(rides, leg) end
     end
-    if #rides > 1 then
+    if #rides > 1 and not held then
         self:stop("trasa wymaga " .. #rides .. " przesiadek")
         return nil
     end
-    if #rides == 1 and rides[1].route.type ~= "dylizans" then
-        self:stop("trasa wymaga innego pojazdu niz dylizans/woz: " .. rides[1].route.type)
-        return nil
+    local names = {}
+    for _, ride in ipairs(rides) do
+        if ride.route.type ~= "dylizans" then
+            self:stop("trasa wymaga innego pojazdu niz dylizans/woz: " .. ride.route.type)
+            return nil
+        end
+        table.insert(names, ride.route.name)
     end
 
     local commands = trasa:podroz_commands(legs)
@@ -346,7 +351,7 @@ function ku:plan_route(room)
         self:stop("trasa wymaga recznej wysiadki")
         return nil
     end
-    return { commands = commands, label = #rides == 1 and rides[1].route.name or "pieszo" }
+    return { commands = commands, label = #rides > 0 and table.concat(names, " + ") or "pieszo" }
 end
 
 -- ---------- etap 4: podroz ----------
