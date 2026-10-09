@@ -99,8 +99,13 @@ local function current_room()
     return amap and amap.curr and amap.curr.id
 end
 
+-- lokacje z "poczta" w nazwie, ktore nie przyjmuja zlecen (poczty prywatne)
+local skip_posts = { [7304] = true }
+
 local function room_is_post(room)
-    local name = room and room ~= -1 and getRoomName(room)
+    room = tonumber(room)
+    if not room or room == -1 or skip_posts[room] then return false end
+    local name = getRoomName(room)
     return name and string.find(string.lower(name), "poczta", 1, true) ~= nil
 end
 
