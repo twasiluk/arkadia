@@ -304,7 +304,8 @@ end
 
 -- ---------- trasa do adresata ----------
 -- pieszo ponizej walk_limit krokow albo najwyzej jeden odcinek dylizansem/wozem;
--- held = paczka juz w rekach, trzeba ja dostarczyc - wtedy bez limitu przesiadek
+-- held = paczka juz w rekach, trzeba ja dostarczyc - wtedy bez limitu
+-- przesiadek i bez ograniczenia rodzaju pojazdu (statki tez)
 function ku:plan_route(room, held)
     local from = current_room()
     if not from or from == -1 then
@@ -356,7 +357,7 @@ function ku:plan_route(room, held)
     end
     local names = {}
     for _, ride in ipairs(rides) do
-        if ride.route.type ~= "dylizans" then
+        if ride.route.type ~= "dylizans" and not held then
             self:stop("trasa wymaga innego pojazdu niz dylizans/woz: " .. ride.route.type)
             return nil
         end
