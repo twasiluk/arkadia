@@ -355,9 +355,10 @@ function ku:plan_route(room, held)
 end
 
 -- ---------- etap 4: podroz ----------
--- adresat-instytucja ("BANK WYZIMSKI", "POCZTA W NULN", "PIEKARNIA ..."):
--- bez przedstawiania i odmiany, paczke zostawia sie "oddaj paczke"
-local place_prefixes = { "bank", "poczta", "piekarnia" }
+-- adresat-instytucja ("BANK WYZIMSKI", "POCZTA W NULN", "PIEKARNIA ...",
+-- "RATUSZ MIEJSKI, MARIBOR"): bez przedstawiania i odmiany, paczke zostawia
+-- sie "oddaj paczke"
+local place_prefixes = { "bank", "poczta", "piekarnia", "ratusz" }
 
 local function is_place(name)
     local lowered = string.lower(name or "")
