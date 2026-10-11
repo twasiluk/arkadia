@@ -180,14 +180,34 @@ local function room_city(room)
     return area and getRoomAreaName(area) or nil
 end
 
+-- generyczne okreslenia przed nazwa miejsca na paczce ("OSADA FANDALL")
+local city_prefixes = { "osada", "wioska", "wies", "miasto", "miasteczko",
+    "gmina", "twierdza", "zamek", "port", "przystan" }
+
+local function city_core(city)
+    local lowered = string.lower(string.trim(city or ""))
+    for _, prefix in ipairs(city_prefixes) do
+        local rest = string.match(lowered, "^" .. prefix .. "%s+(.+)$")
+        if rest then return rest end
+    end
+    return lowered
+end
+
+-- obszar mapy vs miasto z paczki w obie strony: obszar "Fandall" pasuje do
+-- adresu "osada Fandall", a obszar "Osada Fandall" do adresu "Fandall"
 local function in_city(room, city)
     local area = room_city(room)
-    return area and string.find(string.lower(area), string.lower(city), 1, true) ~= nil
+    if not area or area == "" then return false end
+    area, city = string.lower(area), city_core(city)
+    if city == "" then return false end
+    return string.find(area, city, 1, true) ~= nil
+        or string.find(city, area, 1, true) ~= nil
 end
 
 -- lokacja adresata: asystent paczek, potem npc.json/baza/nazwa lokacji
 -- (/paczka); kilka lokacji -> te w miescie z tablicy, bez miasta na
--- tablicy -> w aktualnym miescie; z pozostalych najblizsza
+-- tablicy -> w aktualnym miescie; z pozostalych najblizsza. Miasto tylko
+-- zaweza liste z listy npc - nieznane miasto nie blokuje kursu
 function ku:resolve_location(offer)
     -- baza asystenta trzyma room_id jako string ("1279" ~= 1279)
     local location = tonumber(offer.location)
@@ -198,13 +218,14 @@ function ku:resolve_location(offer)
     if #rooms == 1 then return rooms[1] end
 
     local city = offer.city or room_city(current_room())
-    if not city then return nil, "adresat w " .. #rooms .. " lokacjach, nie znam miasta: " .. offer.name end
     local candidates = {}
     for _, room in ipairs(rooms) do
-        if in_city(room, city) then table.insert(candidates, room) end
+        if city and in_city(room, city) then table.insert(candidates, room) end
     end
     if #candidates == 0 then
-        return nil, "adresat w " .. #rooms .. " lokacjach, zadna w " .. city .. ": " .. offer.name
+        print_log(string.format("<DimGrey>adresat w %d lokacjach, zadna w %s - biore najblizsza",
+            #rooms, city and ("\"" .. city .. "\"") or "nieznanym miescie"))
+        candidates = rooms
     end
 
     local from = current_room()
