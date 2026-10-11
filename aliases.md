@@ -1452,3 +1452,23 @@ Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami
 Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje; po `Oddajesz pocztowa paczke` wypisuje klikalne `Poczta: /gnaj <id poczty>`.
 
 `npc.json` jest pobierany do katalogu profilu przy starcie skryptow, tylko jesli jeszcze go tam nie ma. Aby odswiezyc - usun plik i przeladuj skrypty.
+
+## `/kasa`
+
+Przelicza sakwe na zloto i wypisuje `Au <zl>`. Wykonuje `policz zlote monety` (wartosc pewna) oraz `ocen srebrne monety` i `ocen miedziane monety` - wartosc z oceny (`Wydaje ci sie, ze jest tu <n> sztuk wartych <x> miedziakow`) jest scinana o 20% jako zapas na blad oceny. Bez odpowiedzi w 5 sekund wypisuje, ktorego rodzaju monet nie policzylo.
+
+Stan sakwy trafia do elementu belki stanow (`Au 201`) - zeby go widziec, trzeba dodac `kasa` do `scripts.ui.cfg.footer_items`, np. `/cset! scripts.ui.cfg.footer_items[5]="kasa"` i `/cset! scripts.ui.footer_main_items_per_row=5`. Klikniecie w `Au` przelicza sakwe.
+
+Linia `<ktos> wyplaca ci <monety>.` (wyplaty za kursy kurierskie) dolicza monety do sakwy i do zarobkow - bez przeliczania sakwy od nowa.
+
+## `/kasa stan`
+
+Wypisuje ostatnio policzona sakwe bez wykonywania komend w grze.
+
+## `/kasa kursy`
+
+Wypisuje zarobki z wyplat: liczbe wyplat, sume, srednia, ostatnia wyplate i podsumowanie per zleceniodawca.
+
+## `/kasa reset`
+
+Zeruje zarobki (sakwa zostaje).

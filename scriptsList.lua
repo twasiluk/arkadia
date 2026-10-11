@@ -215,6 +215,7 @@ return {
     "skrypty/inventory/magic-specs",
     "skrypty/inventory/lampa",
     "skrypty/misc/money",
+    "skrypty/misc/kasa",
     "skrypty/misc/wycinanie-triggers",
     "skrypty/misc/food",
     "skrypty/misc/enemies_eq",
