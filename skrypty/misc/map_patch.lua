@@ -35,23 +35,58 @@ scripts.map_patch = scripts.map_patch or {
 --  "team_follow_link". Do tego cztery wlasciwosci samej mapy: "weight"
 --  (liczba), "lock" (bool), "env" (kolor, liczba), "name" (string).
 --  false kasuje dany klucz userData.
+--
+--  "lock_exits" = lista kierunkow ("dol", "gora", "polnoc", "down", "n",
+--  kod 10...) - zamyka te wyjscia dla szukania drogi. Samo wyjscie
+--  zostaje na mapie: chodzik (/gnaj, /idz, /podroz) go nie uzyje, ale
+--  recznie da sie tam zejsc i mapper nadal poprawnie sledzi pozycje.
+--  Tym blokujemy skroty, ktorych nie chcemy w trasach - np. tunele.
 -- ============================================================
 local patches = {
     -- [6430] = { gate = "uderz w brame", weight = 5 },
     -- ["i7f3a12cd"] = { note = "tu stoi straznik", lock = true },
-}
 
--- wlasciwosci mapy maja wlasne funkcje, reszta idzie w userData
-local setters = {
-    weight = setRoomWeight,
-    lock   = lockRoom,
-    env    = setRoomEnv,
-    name   = setRoomName,
+    -- Tunele pod Oxenfurtem (z = -1). Caly poziom wisi na czterech
+    -- zejsciach w dol - zamkniecie ich wyprowadza tunele z tras, a
+    -- wyjscia "gora" zostaja otwarte, wiec z samych tuneli /gnaj
+    -- nadal wyprowadzi.
+    ["i53313986b"] = { lock_exits = { "dol" } },  -- 2543 -> 23613
+    ["i87868731b"] = { lock_exits = { "dol" } },  -- 2553 -> 23597
+    ["i3aa2dae28"] = { lock_exits = { "dol" } },  -- 2459 -> 23609
+    ["ibb6918a0b"] = { lock_exits = { "dol" } },  -- 852  -> 10712
 }
 
 local function log(msg)
     cecho("\n<CadetBlue>(map_patch)<reset>: " .. msg .. "\n")
 end
+
+-- "dol" / "down" / "d" / 10 -> kod kierunku Mudleta
+local function dir_code(dir)
+    if tonumber(dir) then return tonumber(dir) end
+    return amap.exitmap[amap.polish_to_english[dir] or dir]
+end
+
+-- zamyka wyjscia dla getPath; lista kierunkow albo jeden kierunek
+local function lock_exits(id, dirs)
+    if type(dirs) ~= "table" then dirs = { dirs } end
+    for _, dir in ipairs(dirs) do
+        local code = dir_code(dir)
+        if code then
+            lockExit(id, code, true)
+        else
+            log("<tomato>nieznany kierunek w lock_exits: " .. tostring(dir))
+        end
+    end
+end
+
+-- wlasciwosci mapy maja wlasne funkcje, reszta idzie w userData
+local setters = {
+    weight     = setRoomWeight,
+    lock       = lockRoom,
+    env        = setRoomEnv,
+    name       = setRoomName,
+    lock_exits = lock_exits,
+}
 
 -- id mudletowe z klucza poprawki; nil, jesli takiej lokacji nie ma na mapie
 local function resolve(key)
