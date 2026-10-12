@@ -1,6 +1,6 @@
 -- ============================================================
 --  helper - obchod pol z mapy (qk, sz) i nagrywanie trasy (rec)
---    /qk <pole-id> [...]  - zabijanie snotlingow na polach
+--    /qk <pole-id> [...]  - zabijanie potworow na polach
 --    /sz <pole-id> [...]  - szukanie ziol na polach
 --    /rec                 - nagrywanie odwiedzonych lokacji
 --    /queue <komendy>     - komendy po kolei, z opoznieniem
@@ -23,9 +23,12 @@ local function log(name, msg)
 end
 
 -- ============================================================
---  qk - obchod pol i zabijanie snotlingow
+--  qk - obchod pol i zabijanie potworow
 --  start = pole, na ktorym stoisz przy uruchomieniu
 -- ============================================================
+
+-- potwory do zabicia na polu (dopasowanie do opisu obiektu)
+local MOBS = { "snotling", "gremlin", "goblin", "ork", "szczur", "pluskwa" }
 
 local HP_FULL = 6      -- gmcp.char.state.hp: 6 = pelne zdrowie
 local HP_MIN = 4       -- ponizej polowy = powrot na start
@@ -78,42 +81,52 @@ function qk.next()
     qk.home("<tomato>brak innego pola")
 end
 
--- numery snotlingow na lokacji (gmcp.objects.nums + opisy z ateam.objs);
--- %f - samo slowo "snotling", bez np. "krol snotlingow"
-local function snotlings()
-    local found = {}
+-- nazwa potwora z opisu obiektu albo nil;
+-- %f - samo slowo (np. "snotling", bez "krol snotlingow")
+local function mob_name(desc)
+    for _, name in ipairs(MOBS) do
+        if desc:find("%f[%a]" .. name .. "%f[%A]") then return name end
+    end
+end
+
+-- numery potworow na lokacji (gmcp.objects.nums + opisy z ateam.objs)
+local function mobs()
+    local found, names = {}, {}
     for _, num in pairs(gmcp.objects and gmcp.objects.nums or {}) do
         local obj = ateam.objs[tonumber(num)]
         local desc = obj and obj.desc and obj.desc:lower()
-        if desc and desc:find("%f[%a]snotling%f[%A]") then
+        local name = desc and mob_name(desc)
+        if name then
             table.insert(found, tonumber(num))
+            names[tonumber(num)] = name
         end
     end
-    return found
+    return found, names
 end
 
--- atakuje, gdy nie walczymy juz z ktoryms z obecnych snotlingow;
--- zwraca true, gdy jakis snotling jest na polu
+-- atakuje, gdy nie walczymy juz z ktorymkolwiek z obecnych potworow;
+-- zwraca true, gdy jakis potwor jest na polu
 function qk.hunt()
-    local found = snotlings()
+    local found, names = mobs()
     if #found == 0 then
         qk.target = nil
         return false
     end
     if not (qk.target and table.contains(found, qk.target)) then
         qk.target = found[1]
-        log("qk", "<orange>snotling na polu")
-        send("zabij snotlinga")
+        log("qk", "<orange>" .. names[qk.target] .. " na polu")
+        -- ob_<numer> - skladnia obiektowa, bez odmiany nazwy
+        send("zabij ob_" .. qk.target)
     end
     return true
 end
 
--- czysto (bez snotlinga) i pelne zdrowie = mozna isc bez postoju
+-- czysto (bez potwora) i pelne zdrowie = mozna isc bez postoju
 local function qk_ready()
     return not qk.hunt() and hp() == HP_FULL
 end
 
--- postoj na polu; ruch dopiero, gdy nie ma snotlinga
+-- postoj na polu; ruch dopiero, gdy nie ma potwora
 function qk.wait()
     if qk.timer then killTimer(qk.timer); qk.timer = nil end
     if qk_ready() then return qk.next() end
@@ -124,7 +137,7 @@ function qk.wait()
     end)
 end
 
--- po dojsciu: sprawdz snotlinga, postoj, potem kolejny ruch (albo powrot, gdy limit)
+-- po dojsciu: sprawdz potwory, postoj, potem kolejny ruch (albo powrot, gdy limit)
 function qk.arrived()
     if not qk.handlers then return end
     qk.target = nil
