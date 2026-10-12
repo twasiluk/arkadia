@@ -11,9 +11,11 @@ scripts.kurier = scripts.kurier or {
     triggers = {},
     handlers = {},
     timers = {},
+    introduced = {},   -- adresaci, ktorym przedstawilem sie w tej sesji
 }
 
 local ku = scripts.kurier
+ku.introduced = ku.introduced or {}   -- po przeladowaniu pliku ze starej tabeli
 
 local delay_min, delay_max = 3, 9
 local walk_limit = 30        -- pieszo do adresata bez szukania polaczenia
@@ -416,10 +418,34 @@ function ku:at_recipient()
     local npc = self:single_npc()
     if npc then
         return self:next("oddanie paczki (ob_" .. npc .. ")", function()
-            ku:deliver("daj paczke ob_" .. npc, function() ku:introduce() end)
+            ku:deliver("daj paczke ob_" .. npc, function() ku:to_delivery() end)
         end)
     end
-    self:next("przedstawienie sie", function() ku:introduce() end)
+    self:to_delivery()
+end
+
+-- adresat wymieniony na lokacji pod swoim imieniem = juz sie znamy
+-- (nieznajomy jest na liscie jako opis, np. "jakis mezczyzna")
+function ku:recipient_listed()
+    local first = string.lower(string.match(self.package.name or "", "^[^%s,]+") or "")
+    if first == "" or not ateam or not ateam.objs then return false end
+    if not gmcp or not gmcp.objects then return false end
+    for _, num in pairs(gmcp.objects.nums or {}) do
+        local obj = ateam.objs[tonumber(num)]
+        local desc = obj and obj["desc"] and string.lower(obj["desc"])
+        if desc and string.find(desc, first, 1, true) then return true end
+    end
+    return false
+end
+
+-- przedstawiamy sie raz na sesje i tylko nieznajomym
+function ku:to_delivery()
+    local name = string.lower(self.package.name or "")
+    if not self.introduced[name] and not self:recipient_listed() then
+        return self:next("przedstawienie sie", function() ku:introduce() end)
+    end
+    print_log("<DimGrey>adresat mnie zna, pomijam przedstawienie sie")
+    self:next("odmiana imienia", function() ku:decline() end)
 end
 
 function ku:travel()
@@ -435,6 +461,7 @@ end
 
 -- ---------- etap 5: przedstawienie sie ----------
 function ku:introduce()
+    self.introduced[string.lower(self.package.name or "")] = true
     send("przedstaw sie")
     self:next("odmiana imienia", function() ku:decline() end)
 end
@@ -525,6 +552,7 @@ function ku:state()
         { "room", room and string.format("%s %s [%s]", room, tostring(room ~= -1 and getRoomName(room)), tostring(room_city(room))) },
         { "walker", amap and string.format("%s dest=%s", tostring(amap.walker), tostring(amap.walker_dest)) },
         { "single_npc", self:single_npc() },
+        { "introduced", self.introduced },
         { "current_offer", scripts.packages.current_offer },
         { "picked_offer", scripts.packages.picked_offer },
     }
