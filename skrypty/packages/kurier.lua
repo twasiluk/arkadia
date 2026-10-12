@@ -100,7 +100,7 @@ local function current_room()
 end
 
 -- lokacje z "poczta" w nazwie, ktore nie przyjmuja zlecen (poczty prywatne)
-local skip_posts = { [7304] = true }
+local skip_posts = { [7304] = true, [7612] = true }
 
 local function room_is_post(room)
     room = tonumber(room)
