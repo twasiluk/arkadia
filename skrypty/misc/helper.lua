@@ -47,7 +47,7 @@ end
 
 function qk.go(id)
     if amap.walker then amap:terminate_walker() end
-    expandAlias("/idz " .. id, false)
+    expandAlias("/gnaj " .. id, false)
 end
 
 -- konczy chodzenie i od razu wraca na start
