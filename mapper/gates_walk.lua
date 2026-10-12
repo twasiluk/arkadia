@@ -6,12 +6,19 @@
 --  czeka 1-3 s i idzie dalej. Bez zmian w walker.lua: opakowanie
 --  amap:auto_walker, pauza w amap.walker_timer_id (kasuje ja /stop i blokery).
 --  Brama nieoznaczona: po odbiciu stuka i wznawia /gnaj (gw:gate_stopped).
+--
+--  /gnaj przyjmuje kilka celow (punkty trasy) i opoznienie na koncu:
+--  "/gnaj 7640 7615 8122 3". Powtorzony /gnaj do celu, do ktorego chodzik
+--  wlasnie idzie, tylko zmienia opoznienie (jak /opoz).
 -- ============================================================
 
 amap.gates_walk = amap.gates_walk or {}
 local gw = amap.gates_walk
 
 local pause_min, pause_max = 1, 3
+local delay_limit = 100      -- liczba ponizej tej wartosci to opoznienie, nie lokacja
+local leg_retry = 0.5        -- czekanie na potwierdzenie lokacji przed nastepnym etapem
+local leg_tries = 10
 
 local function gate_cmd(room)
     local cmd = getRoomUserData(room, "gate")
@@ -98,26 +105,73 @@ function gw:started()
     self.pending_dest = nil
 end
 
--- /gnaj <id|skrot> [opoznienie]
-function gw:go(target, delay, resume)
-    if amap.walker then
-        amap:print_log("Chodzik aktualnie pracuje, najpierw zastopuj uzywajac '/stop'")
-        return
-    end
-    if self.start_timer then killTimer(self.start_timer); self.start_timer = nil end
-
-    if delay == "" then delay = nil end
+local function resolve_room(target)
     local room = target:match("^%d+$") and target
         or (target:match("^i[0-9a-z]+$") and amap.internal_to_mudlet_id[target])
         or amap.shortcuts:get_room_by_name(target)
-    room = tonumber(room)
+    return tonumber(room)
+end
+
+-- ostatnia liczba to opoznienie (jak dotad: "/gnaj 7640 4"), chyba ze wyglada
+-- na lokacje: calkowita, co najmniej delay_limit i istniejaca na mapie
+-- ("/gnaj 7640 7615" to dwa punkty trasy)
+local function parse_args(text)
+    local targets = {}
+    for word in string.gmatch(text, "%S+") do table.insert(targets, word) end
+    if #targets < 2 then return targets, nil end
+    local last = targets[#targets]
+    local number = tonumber(last)
+    local looks_like_room = number and last:match("^%d+$")
+        and number >= delay_limit and roomExists(number)
+    if number and not looks_like_room then
+        table.remove(targets)
+        return targets, last
+    end
+    return targets, nil
+end
+
+-- cel, do ktorego chodzik wlasnie idzie, albo dalszy punkt biezacej trasy
+function gw:walking_to(room)
+    if room == tonumber(amap.walker_dest) then return true end
+    local queue = self.queue
+    for i = (queue and queue.index or 0) + 1, queue and #queue.targets or 0 do
+        if room == resolve_room(queue.targets[i]) then return true end
+    end
+    return false
+end
+
+-- opoznienie dziala od nastepnego kroku (walker_delay czyta kazdy takt);
+-- bez zmiany /opoz, czyli domyslnego amap.set_walker_delay
+function gw:set_delay(delay)
+    amap.walker_delay = delay
+    if self.walk then self.walk.delay = tostring(delay) end
+    if self.queue then self.queue.delay = tostring(delay) end
+    amap:print_log("Zmienilem opoznienie chodzika do " .. tostring(delay))
+end
+
+-- /gnaj <id|skrot> [opoznienie]
+function gw:go(target, delay, resume)
+    if amap.walker then
+        local room, new_delay = resolve_room(target), tonumber(delay)
+        if room and new_delay and self:walking_to(room) then
+            self:set_delay(new_delay)
+            return true
+        end
+        amap:print_log("Chodzik aktualnie pracuje, najpierw zastopuj uzywajac '/stop'")
+        return false
+    end
+    if self.start_timer then killTimer(self.start_timer); self.start_timer = nil end
+    if self.queue_cancel then killTimer(self.queue_cancel); self.queue_cancel = nil end
+
+    if delay == "" then delay = nil end
+    local room = resolve_room(target)
     if not room then
         amap:print_log("Nie znam lokacji ani skrotu: " .. target)
-        return
+        return false
     end
     if not amap.curr.id or amap.curr.id == -1 or not getPath(amap.curr.id, room) then
         amap:print_log("Nie ma polaczenia z aktualnej lokacji do docelowej")
-        return
+        return false
     end
 
     if not resume then self.walk = { dest = room, delay = delay, knocked = {} } end
@@ -143,22 +197,83 @@ function gw:go(target, delay, resume)
     else
         run()
     end
+    return true
+end
+
+-- ---------- punkty trasy ----------
+function gw:next_leg()
+    local queue = self.queue
+    if not queue then return end
+    queue.index = queue.index + 1
+    local target = queue.targets[queue.index]
+    if not target then
+        self.queue = nil
+        return
+    end
+    if #queue.targets > 1 then
+        amap:print_log(string.format("/gnaj etap %d/%d: %s", queue.index, #queue.targets, target))
+    end
+    if not self:go(target, queue.delay) then self.queue = nil end
+end
+
+-- nastepny etap startuje po potwierdzeniu lokacji: amapWalkerFinished leci
+-- czesto przed aktualizacja amap.curr przez mapper
+function gw:queue_next(from_room)
+    local queue = self.queue
+    if not queue or queue.index >= #queue.targets then
+        self.queue = nil
+        return
+    end
+    local tries = 0
+    local function start()
+        gw.queue_timer = nil
+        if gw.queue ~= queue or amap.walker then return end
+        tries = tries + 1
+        if from_room and tonumber(amap.curr.id) ~= from_room and tries < leg_tries then
+            gw.queue_timer = tempTimer(leg_retry, start)
+            return
+        end
+        gw:next_leg()
+    end
+    self.queue_timer = tempTimer(leg_retry, start)
+end
+
+-- przerwany chodzik konczy trase, ale stukanie w nieoznaczona brame wznawia
+-- /gnaj (gw:resume) - stad odlozone kasowanie i test tozsamosci kolejki
+function gw:queue_terminated()
+    local queue = self.queue
+    if not queue then return end
+    if self.queue_cancel then killTimer(self.queue_cancel) end
+    self.queue_cancel = tempTimer(5, function()
+        gw.queue_cancel = nil
+        if gw.queue == queue then gw.queue = nil end
+    end)
 end
 
 function gw:init()
     self.handler_started = scripts.event_register:force_register_event_handler(self.handler_started,
         "amapWalkerStarted", function() gw:started() end)
     self.handler_finished = scripts.event_register:force_register_event_handler(self.handler_finished,
-        "amapWalkerFinished", function() gw:reset(); gw.walk = nil end)
+        "amapWalkerFinished", function()
+            local dest = gw.walk and gw.walk.dest
+            gw:reset()
+            gw.walk = nil
+            gw:queue_next(dest)
+        end)
     self.handler_terminated = scripts.event_register:force_register_event_handler(self.handler_terminated,
-        "amapWalkerTerminated", function() gw:reset() end)
+        "amapWalkerTerminated", function() gw:reset(); gw:queue_terminated() end)
     self.handler_gate = scripts.event_register:force_register_event_handler(self.handler_gate,
         "amapGateStoppedWalker", function() gw:gate_stopped() end)
     self.handler_gate_idle = scripts.event_register:force_register_event_handler(self.handler_gate_idle,
         "amapGateStopped", function() gw:gate_stopped() end)
     if self.alias then killAlias(self.alias) end
-    self.alias = tempAlias("^/gnaj (\\S+)(?: (\\d+|\\d+\\.\\d+))?$", function()
-        gw:go(matches[2], matches[3])
+    self.alias = tempAlias("^/gnaj\\s+(\\S+(?:\\s+\\S+)*)$", function()
+        local targets, delay = parse_args(matches[2])
+        -- powtorzony /gnaj w trakcie chodzika: tylko opoznienie, bez nowej trasy
+        if amap.walker then return gw:go(targets[1], delay) end
+        if gw.queue_timer then killTimer(gw.queue_timer); gw.queue_timer = nil end
+        gw.queue = { targets = targets, index = 0, delay = delay }
+        gw:next_leg()
     end)
 end
 

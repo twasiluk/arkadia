@@ -996,9 +996,16 @@ Wyznacza ścieżkę do lokacji o podanym ID.
 Planowo rozpoczyna marsz do lokacji po upływie określonego czasu.
 
 
-## `/gnaj <ID|skrót> [<opóźnienie>]`
+## `/gnaj <ID|skrót> [<ID|skrót> ...] [<opóźnienie>]`
 
 Jak `/idz`, ale przed przejściem przez bramę (krok między dwoma lokacjami oznaczonymi na mapie jako brama) wysyła komendę otwarcia (np. `uderz w brame`) i czeka losowo 1-3 s. Bez automatycznego ponawiania - jeśli brama się nie otworzy, działa zwykły keybind otwierania bramy.
+
+Kilka celów = punkty trasy przechodzone po kolei, np. `/gnaj 7640 7615 8122 3` (opóźnienie 3) idzie na 7640, po dojściu na 7615, potem na 8122. Następny etap startuje po potwierdzeniu lokacji przez mapper. Przerwany chodzik (`/stop`, bloker) kasuje pozostałe etapy - poza stuknięciem w nieoznaczoną bramę, które wznawia bieżący etap i trasa leci dalej.
+
+Ostatnia liczba to opóźnienie, chyba że wygląda na lokację (całkowita, co najmniej 100 i istniejąca na mapie) - czyli `/gnaj 7640 4` to opóźnienie 4 (jak dotąd), a `/gnaj 7640 7615` to dwa punkty trasy.
+
+`/gnaj <ID> <opóźnienie>` wywołane w trakcie chodzika do tego samego celu (lub do dalszego punktu bieżącej trasy) nie przerywa marszu, tylko zmienia opóźnienie - jak `/opoz`, ale bez zmiany wartości domyślnej. Działa od następnego kroku.
+
 ## `/dalej`
 
 Kontynuuje wykonywanie wcześniej przygotowanej ścieżki.
