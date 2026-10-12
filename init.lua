@@ -154,6 +154,7 @@ local reload2_scripts = {
     "skrypty/packages/kurier",
     "skrypty/transport/trasa",
     "skrypty/packages/paczka",
+    "skrypty/misc/kasa",
 }
 
 function alias_func_reload()
