@@ -15,7 +15,7 @@ scripts.kurier = scripts.kurier or {
 
 local ku = scripts.kurier
 
-local delay_min, delay_max = 3, 9
+local delay_min, delay_max = 1.5, 4.5
 local walk_limit = 30        -- pieszo do adresata bez szukania polaczenia
 local board_timeout = 20     -- czekanie na tablice z przesylkami
 local pickup_timeout = 20    -- czekanie na wydanie paczki
