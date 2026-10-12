@@ -390,10 +390,34 @@ local function is_place(name)
     return false
 end
 
+-- adresat sam na lokacji (jedyna zywa postac poza mna) - wtedy paczke bierze
+-- po numerze gmcp ("daj paczke ob_123", jak scripts.smalltalk), bez
+-- przedstawiania sie i odmiany imienia. Numer jest jednoznaczny i nie wymaga
+-- zgadywania rodzaju ani rasy; gdy komenda nie przejdzie, wraca zwykla sciezka
+function ku:single_npc()
+    if not gmcp or not gmcp.objects or not gmcp.objects.nums then return nil end
+    if not ateam or not ateam.objs then return nil end
+    local found
+    for _, num in pairs(gmcp.objects.nums) do
+        local id = tonumber(num)
+        if id and id ~= ateam.my_id and ateam.objs[id] then
+            if found then return nil end
+            found = id
+        end
+    end
+    return found
+end
+
 -- etap po dotarciu do adresata
 function ku:at_recipient()
     if is_place(self.package.name) then
         return self:next("oddanie paczki", function() ku:deliver("oddaj paczke") end)
+    end
+    local npc = self:single_npc()
+    if npc then
+        return self:next("oddanie paczki (ob_" .. npc .. ")", function()
+            ku:deliver("daj paczke ob_" .. npc, function() ku:introduce() end)
+        end)
     end
     self:next("przedstawienie sie", function() ku:introduce() end)
 end
@@ -435,13 +459,24 @@ function ku:decline()
 end
 
 -- ---------- etap 7: oddanie paczki ----------
-function ku:deliver(command)
+-- fallback: bez potwierdzenia w reply_timeout probujemy dalej po staremu
+-- (przedstawienie sie + odmiana), zamiast konczyc petle
+function ku:deliver(command, fallback)
     self:clear_waiting()
     self:watch("^Oddajesz pocztowa paczke", function()
         ku:clear_waiting()
         ku:finish_round()
     end)
-    self:deadline(reply_timeout * 3, "paczka nie zostala oddana")
+    if fallback then
+        table.insert(self.timers, tempTimer(reply_timeout, function()
+            if not ku.running then return end
+            ku:clear_waiting()
+            print_log("<DimGrey>skrot nie zadzialal, przedstawiam sie")
+            fallback()
+        end))
+    else
+        self:deadline(reply_timeout * 3, "paczka nie zostala oddana")
+    end
     send(command)
 end
 
@@ -489,6 +524,7 @@ function ku:state()
         { "triggers/timers/handlers", #self.triggers .. "/" .. #self.timers .. "/" .. #self.handlers },
         { "room", room and string.format("%s %s [%s]", room, tostring(room ~= -1 and getRoomName(room)), tostring(room_city(room))) },
         { "walker", amap and string.format("%s dest=%s", tostring(amap.walker), tostring(amap.walker_dest)) },
+        { "single_npc", self:single_npc() },
         { "current_offer", scripts.packages.current_offer },
         { "picked_offer", scripts.packages.picked_offer },
     }
