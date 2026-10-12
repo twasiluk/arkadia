@@ -11,11 +11,9 @@ scripts.kurier = scripts.kurier or {
     triggers = {},
     handlers = {},
     timers = {},
-    introduced = {},   -- adresaci, ktorym przedstawilem sie w tej sesji
 }
 
 local ku = scripts.kurier
-ku.introduced = ku.introduced or {}   -- po przeladowaniu pliku ze starej tabeli
 
 local delay_min, delay_max = 3, 9
 local walk_limit = 30        -- pieszo do adresata bez szukania polaczenia
@@ -424,7 +422,7 @@ function ku:at_recipient()
     self:to_delivery()
 end
 
--- adresat wymieniony na lokacji pod swoim imieniem = juz sie znamy
+-- adresat wymieniony na lokacji pod swoim imieniem = gra zna juz jego imie
 -- (nieznajomy jest na liscie jako opis, np. "jakis mezczyzna")
 function ku:recipient_listed()
     local first = string.lower(string.match(self.package.name or "", "^[^%s,]+") or "")
@@ -438,13 +436,13 @@ function ku:recipient_listed()
     return false
 end
 
--- przedstawiamy sie raz na sesje i tylko nieznajomym
+-- przedstawiamy sie, dopoki gra nie pokazuje imienia adresata na lokacji;
+-- wlasna pamiec sesji nie wystarcza - liczy sie to, co widac teraz
 function ku:to_delivery()
-    local name = string.lower(self.package.name or "")
-    if not self.introduced[name] and not self:recipient_listed() then
+    if not self:recipient_listed() then
         return self:next("przedstawienie sie", function() ku:introduce() end)
     end
-    print_log("<DimGrey>adresat mnie zna, pomijam przedstawienie sie")
+    print_log("<DimGrey>adresat wymieniony z imienia, pomijam przedstawienie sie")
     self:next("odmiana imienia", function() ku:decline() end)
 end
 
@@ -461,7 +459,6 @@ end
 
 -- ---------- etap 5: przedstawienie sie ----------
 function ku:introduce()
-    self.introduced[string.lower(self.package.name or "")] = true
     send("przedstaw sie")
     self:next("odmiana imienia", function() ku:decline() end)
 end
@@ -552,7 +549,6 @@ function ku:state()
         { "room", room and string.format("%s %s [%s]", room, tostring(room ~= -1 and getRoomName(room)), tostring(room_city(room))) },
         { "walker", amap and string.format("%s dest=%s", tostring(amap.walker), tostring(amap.walker_dest)) },
         { "single_npc", self:single_npc() },
-        { "introduced", self.introduced },
         { "current_offer", scripts.packages.current_offer },
         { "picked_offer", scripts.packages.picked_offer },
     }
