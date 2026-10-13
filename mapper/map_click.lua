@@ -1,7 +1,7 @@
 -- ============================================================
---  map_click - pojedyncze kliknicie w lokacje na mapie wypisuje klikalne
---  "/gnaj <room_id>" (podpowiedz, nic nie rusza). Dwuklik, jak dotad, od razu
---  uruchamia chodzika.
+--  map_click - pojedyncze klikniecie w lokacje na mapie wypisuje klikalne
+--  "/gnaj <room_id>" (podpowiedz, nic nie rusza). Dwuklik, zamiast zwyklego
+--  chodzika, uruchamia /gnaj do klikanej lokacji (mc:redirect).
 --
 --  Mudlet nie ma eventu "zmienilo sie zaznaczenie", wiec sluchamy klikniecia w
 --  okno mapy (sysMapWindowMousePressEvent, Mudlet 4.20+) i po chwili czytamy
@@ -51,6 +51,30 @@ function mc:on_click()
         mc.last_room, mc.last_at = room, now
         mc:show(room)
     end)
+end
+
+-- ---------- dwuklik ----------
+--  Mudlet po dwukliku liczy sciezke i wola doSpeedWalk; przekierowujemy to na
+--  /gnaj (stukanie w bramy + tempo na ZME). Chodziki ze skryptow ida dalej
+--  zwyklym torem - maja amap.walker_set, a /gnaj i tak konczy na
+--  speedwalk_from_id -> gotoRoom -> doSpeedWalk, tylko juz z ta flaga.
+function mc:redirect()
+    local gw = amap.gates_walk
+    if not gw or amap.walker_set or amap.walker then return false end
+    if amap.walker_disabled or amap.mode ~= "follow" then return false end
+    if amap.walker_on_map_click == false then return false end
+    local dest = speedWalkPath and speedWalkPath[#speedWalkPath]
+    if not dest or tonumber(dest) == amap.curr.id then return false end
+    -- nieudany /gnaj wypisuje powod; zwykly chodzik juz go nie dubluje
+    gw:go(tostring(dest))
+    return true
+end
+
+-- opakowanie raz, odporne na przeladowanie pliku
+if not mc.original_speedwalk then mc.original_speedwalk = doSpeedWalk end
+function doSpeedWalk()
+    if mc:redirect() then return end
+    return mc.original_speedwalk()
 end
 
 function mc:init()
