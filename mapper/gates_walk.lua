@@ -10,6 +10,10 @@
 --  /gnaj przyjmuje kilka celow (punkty trasy) i opoznienie na koncu:
 --  "/gnaj 7640 7615 8122 3". Powtorzony /gnaj do celu, do ktorego chodzik
 --  wlasnie idzie, tylko zmienia opoznienie (jak /opoz).
+--
+--  Bez podanego opoznienia chodzik idzie dynamicznie: przed kazdym krokiem
+--  czyta ZME (zmeczenie z #footer.main) i ustawia opoznienie z mapowania
+--  fatigue_to_delay. Podane opoznienie wylacza dynamike na ten chodzik.
 -- ============================================================
 
 amap.gates_walk = amap.gates_walk or {}
@@ -56,10 +60,48 @@ function gw:before_step()
     return true
 end
 
+-- ---------- dynamiczne opoznienie od zmeczenia ----------
+--  ZME (scripts.character.state.fatigue, 0-9, rosnie z wyczerpaniem) -> opoznienie
+local fatigue_to_delay = {
+    [0] = 0.5,
+    [1] = 0.5,
+    [2] = 0.5,
+    [3] = 2,
+    [4] = 3,
+    [5] = 6,
+    [6] = 7,
+    [7] = 9,
+    [8] = 12,
+    [9] = 20,
+}
+
+-- nil, gdy nie znamy jeszcze ZME (brak gmcp) - wtedy zostaje opoznienie z /opoz
+function gw:fatigue_delay()
+    local state = scripts and scripts.character and scripts.character.state
+    local level = state and tonumber(state.fatigue)
+    if not level or level < 0 then return nil end
+    level = math.floor(level)
+    if level > 9 then level = 9 end
+    return fatigue_to_delay[level], level
+end
+
+-- przed krokiem: opoznienie na nastepny takt (walker_delay czyta kazdy takt);
+-- log tylko przy zmianie wartosci
+function gw:apply_fatigue_delay()
+    if not self.dynamic then return end
+    local delay, level = self:fatigue_delay()
+    if not delay or delay == amap.walker_delay then return end
+    amap.walker_delay = delay
+    amap:print_log(string.format("ZME %d - opoznienie chodzika %s", level, tostring(delay)))
+end
+
 -- opakowanie raz, odporne na przeladowanie pliku
 if not gw.original then gw.original = amap.auto_walker end
 function amap:auto_walker()
-    if amap.walker_gates and gw:before_step() then return end
+    if amap.walker_gates then
+        gw:apply_fatigue_delay()
+        if gw:before_step() then return end
+    end
     return gw.original(self)
 end
 
@@ -143,6 +185,7 @@ end
 -- opoznienie dziala od nastepnego kroku (walker_delay czyta kazdy takt);
 -- bez zmiany /opoz, czyli domyslnego amap.set_walker_delay
 function gw:set_delay(delay)
+    self.dynamic = false
     amap.walker_delay = delay
     if self.walk then self.walk.delay = tostring(delay) end
     if self.queue then self.queue.delay = tostring(delay) end
@@ -175,9 +218,13 @@ function gw:go(target, delay, resume)
     end
 
     if not resume then self.walk = { dest = room, delay = delay, knocked = {} } end
+    -- bez podanego opoznienia chodzik jedzie na ZME (gw:apply_fatigue_delay)
+    self.dynamic = delay == nil
+    local step_delay = delay
+    if self.dynamic then step_delay = self:fatigue_delay() end
     -- kroki razy opoznienie chodzika (bez przerw na bramy)
     local steps = #speedWalkPath
-    local seconds = math.floor(steps * (tonumber(delay) or amap.walker_delay or 0) + 0.5)
+    local seconds = math.floor(steps * (tonumber(step_delay) or amap.walker_delay or 0) + 0.5)
     amap:print_log(string.format("/gnaj %d: %d krokow, %d:%02dm", room, steps, math.floor(seconds / 60), seconds % 60))
     local start = amap.curr.id
     self.path = { [0] = start }
@@ -187,7 +234,8 @@ function gw:go(target, delay, resume)
     local run = function()
         gw.start_timer = nil
         gw.pending_dest = room
-        amap:speedwalk_from_id(tostring(room), delay)
+        -- po pauzie na brame ZME moze byc inne niz przy wywolaniu /gnaj
+        amap:speedwalk_from_id(tostring(room), gw.dynamic and gw:fatigue_delay() or delay)
     end
     -- pierwszy krok idzie z doSpeedWalk, nie z auto_walker
     local cmd = self:gate_between(start, self.path[1])

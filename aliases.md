@@ -1006,6 +1006,8 @@ Ostatnia liczba to opóźnienie, chyba że wygląda na lokację (całkowita, co 
 
 `/gnaj <ID> <opóźnienie>` wywołane w trakcie chodzika do tego samego celu (lub do dalszego punktu bieżącej trasy) nie przerywa marszu, tylko zmienia opóźnienie - jak `/opoz`, ale bez zmiany wartości domyślnej. Działa od następnego kroku.
 
+Bez podanego opóźnienia chodzik idzie dynamicznie: przed każdym krokiem czyta ZME (zmęczenie z `#footer.main`) i ustawia opóźnienie z mapowania ZME 0-2 → 0.5, 3 → 2, 4 → 3, 5 → 6, 6 → 7, 7 → 9, 8 → 12, 9 → 20 (zmiana wartości idzie na log). Dopóki ZME nie jest znane (brak gmcp), zostaje opóźnienie z `/opoz`. Podane opóźnienie - przy wywołaniu albo w trakcie marszu - wyłącza dynamikę do końca tego chodzika (dotyczy też `/podroz`, który chodzi z opóźnieniem 4).
+
 ## `/dalej`
 
 Kontynuuje wykonywanie wcześniej przygotowanej ścieżki.
