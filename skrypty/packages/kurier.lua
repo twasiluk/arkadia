@@ -16,7 +16,7 @@ scripts.kurier = scripts.kurier or {
 local ku = scripts.kurier
 
 local delay_min, delay_max = 1.5, 4.5
-local walk_limit = 30        -- pieszo do adresata bez szukania polaczenia
+local walk_limit = 50        -- pieszo do adresata bez szukania polaczenia
 local board_timeout = 20     -- czekanie na tablice z przesylkami
 local pickup_timeout = 20    -- czekanie na wydanie paczki
 local travel_timeout = 1800  -- czekanie na dotarcie do adresata
@@ -305,7 +305,9 @@ end
 -- ---------- trasa do adresata ----------
 -- pieszo ponizej walk_limit krokow albo najwyzej jeden odcinek dylizansem/wozem;
 -- held = paczka juz w rekach, trzeba ja dostarczyc - wtedy bez limitu
--- przesiadek i bez ograniczenia rodzaju pojazdu (statki tez)
+-- przesiadek, bez ograniczenia rodzaju pojazdu (statki tez), a gdy trasy nie
+-- da sie ulozyc - pieszo, byle istniala droga (np. adresat w tej samej
+-- twierdzy, kilkadziesiat krokow dalej, a w okolicy zadnego przystanku)
 function ku:plan_route(room, held)
     local from = current_room()
     if not from or from == -1 then
@@ -322,28 +324,35 @@ function ku:plan_route(room, held)
         return { commands = { "/gnaj " .. room }, label = steps .. " krokow pieszo" }
     end
 
+    -- z paczka w rekach kursu nie ma jak pominac: zamiast konczyc petle
+    -- idziemy pieszo, jesli droga istnieje
+    local function fail(msg)
+        if held and steps then
+            print_log(string.format("<DimGrey>%s - ide pieszo (%d krokow)", msg, steps))
+            return { commands = { "/gnaj " .. room }, label = steps .. " krokow pieszo" }
+        end
+        self:stop(msg)
+        return nil
+    end
+
     local trasa = scripts.trasa
     if not trasa then
-        self:stop("brak skryptu trasy")
-        return nil
+        return fail("brak skryptu trasy")
     end
     if not trasa.rides then trasa:build() end
 
     local sources = trasa:resolve(tostring(from))
     local targets, _, to_room = trasa:resolve(tostring(room), true)
     if not sources or not next(sources) then
-        self:stop("brak przystanku w zasiegu poczty")
-        return nil
+        return fail("brak przystanku w zasiegu lokacji " .. from)
     end
     if not targets or not next(targets) then
-        self:stop("brak przystanku w zasiegu adresata")
-        return nil
+        return fail("brak przystanku w zasiegu adresata")
     end
 
     local edges = trasa:find(sources, targets)
     if not edges then
-        self:stop("brak polaczenia do " .. room)
-        return nil
+        return fail("brak polaczenia do " .. room)
     end
     local legs = trasa:legs(edges, to_room)
 
@@ -352,26 +361,22 @@ function ku:plan_route(room, held)
         if leg.kind == "ride" then table.insert(rides, leg) end
     end
     if #rides > 1 and not held then
-        self:stop("trasa wymaga " .. #rides .. " przesiadek")
-        return nil
+        return fail("trasa wymaga " .. #rides .. " przesiadek")
     end
     local names = {}
     for _, ride in ipairs(rides) do
         if ride.route.type ~= "dylizans" and not held then
-            self:stop("trasa wymaga innego pojazdu niz dylizans/woz: " .. ride.route.type)
-            return nil
+            return fail("trasa wymaga innego pojazdu niz dylizans/woz: " .. ride.route.type)
         end
         table.insert(names, ride.route.name)
     end
 
     local commands = trasa:podroz_commands(legs)
     if #commands ~= 1 then
-        self:stop("trasa nie miesci sie w jednej komendzie /podroz")
-        return nil
+        return fail("trasa nie miesci sie w jednej komendzie /podroz")
     end
     if commands[1]:sub(1, 1) ~= "/" then
-        self:stop("trasa wymaga recznej wysiadki")
-        return nil
+        return fail("trasa wymaga recznej wysiadki")
     end
     return { commands = commands, label = #rides > 0 and table.concat(names, " + ") or "pieszo" }
 end
