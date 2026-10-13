@@ -61,45 +61,150 @@ function gw:before_step()
 end
 
 -- ---------- dynamiczne opoznienie od zmeczenia ----------
---  ZME (scripts.character.state.fatigue, 0-9, rosnie z wyczerpaniem) -> opoznienie
-local fatigue_to_delay = {
-    [0] = 0.5,
-    [1] = 0.5,
-    [2] = 0.5,
-    [3] = 2,
-    [4] = 3,
-    [5] = 6,
-    [6] = 7,
-    [7] = 9,
-    [8] = 12,
-    [9] = 20,
-}
+--  Model: ZME (scripts.character.state.fatigue, 0-9, rosnie z wyczerpaniem) to
+--  zbiornik - krok dolewa c, regeneracja odlewa r na sekunde, wiec przy opoznieniu
+--  d poziom zmienia sie o (c - r*d) na krok. Opoznienie break-even d* = c/r trzyma
+--  ZME w miejscu, mniejsze podnosi, wieksze obniza. Maksymalizujemy kroki na czas
+--  przy twardym warunku ZME < 9 (przy 9 postac przestaje isc, por.
+--  scripts.character.break_fatigue_level). Dla monotonicznego stanu z takim
+--  ograniczeniem optimum jest bang-bang + luk brzegowy, czyli:
+--    1. zryw: ZME w buforze (<= burst_exit) - ograniczenie nieaktywne, idziemy
+--       najszybciej jak wolno (d_min) i wydajemy zapas zmeczenia;
+--    2. trzymanie: ZME przy setpoincie - opoznienie ~ d*, czyli maksymalna
+--       podtrzymywalna predkosc; kazdy poziom nad setpointem to growth razy wolniej;
+--    3. odpoczynek: ZME >= rest_level - pauza bez kroku (jak przy bramie), az ZME
+--       spadnie pod setpoint; to gwarantuje, ze nie dobijemy do 9 nawet gdy d*
+--       jest wieksze od d_max (np. przeciazenie);
+--    4. histereza: ZME spadlo do burst_enter - znowu zryw. Profil wychodzi
+--       piloksztaltny: krotkie zrywy przeplatane trzymaniem, nie jedna srednia.
+--  Na marszu dluzszym od zapasu srednia predkosc i tak dazy do 1/d* (zapas to suma
+--  zerowa), ale kazdy marsz krotszy od zapasu konczy sie szybciej - stad zrywy.
+--  d* zalezy od postaci, obciazenia i terenu, wiec nie jest wpisane na sztywno:
+--  hold_delay uczy sie w marszu (AIMD - mnozymy, gdy ZME ucieklo nad setpoint,
+--  odejmujemy po probe_steps krokach bez wzrostu) i zbiega do d*.
+local d_min, d_max = 0.5, 20           -- widelki opoznienia kroku
+local setpoint = 7                     -- ZME, na ktorym trzymamy marsz (prog 9 z marginesem)
+local rest_level = 8                   -- od tego ZME pauza bez kroku
+local rest_tick = 5                    -- co ile sekund sprawdzamy ZME w odpoczynku
+local burst_exit, burst_enter = 6, 4   -- histereza zrywu: konczymy nad 6, wracamy na 4
+local growth = 1.6                     -- ile razy wolniej na kazdy poziom ZME nad setpointem
+local hold_init, hold_min, hold_max = 6, 1, 20    -- start i widelki uczonego d*
+local hold_up, hold_down = 0.3, 0.3    -- AIMD: mnoznik w gore, odejmowanie w dol
+local probe_steps = 5                  -- po tylu krokach bez wzrostu ZME probujemy szybciej
+local burst_eta_init = 20              -- zalozona dlugosc zrywu w krokach, dopoki nie zmierzona
+
+gw.hold_delay = gw.hold_delay or hold_init
+
+local function clamp(value, low, high)
+    if value < low then return low end
+    if value > high then return high end
+    return value
+end
 
 -- nil, gdy nie znamy jeszcze ZME (brak gmcp) - wtedy zostaje opoznienie z /opoz
-function gw:fatigue_delay()
+local function fatigue_level()
     local state = scripts and scripts.character and scripts.character.state
     local level = state and tonumber(state.fatigue)
     if not level or level < 0 then return nil end
-    level = math.floor(level)
-    if level > 9 then level = 9 end
-    return fatigue_to_delay[level], level
+    return clamp(math.floor(level), 0, 9)
+end
+
+-- AIMD: ZME nad setpointem = szlismy za szybko (d < d*), mnozymy opoznienie;
+-- ZME ponizej albo stabilne = probujemy odjac i isc szybciej
+function gw:learn(level)
+    if level ~= self.last_level then
+        local over = level - setpoint
+        if over > 0 then
+            gw.hold_delay = clamp(gw.hold_delay * (1 + hold_up * over), hold_min, hold_max)
+        elseif over < 0 then
+            gw.hold_delay = clamp(gw.hold_delay - hold_down, hold_min, hold_max)
+        end
+        self.last_level, self.level_steps = level, 0
+        return
+    end
+    self.level_steps = (self.level_steps or 0) + 1
+    if level <= setpoint and self.level_steps >= probe_steps then
+        self.level_steps = 0
+        gw.hold_delay = clamp(gw.hold_delay - hold_down, hold_min, hold_max)
+    end
+end
+
+-- opoznienie kroku dla biezacego ZME; nil = zostaje opoznienie z /opoz.
+-- peek liczy tylko wartosc (podglad do ETA), bez uczenia i bez zmiany histerezy
+function gw:step_delay(peek)
+    local level = fatigue_level()
+    if not level then return nil end
+    if self.burst == nil then self.burst = level <= burst_exit end
+    if self.burst then
+        if level <= burst_exit then
+            if not peek then self.burst_count = (self.burst_count or 0) + 1 end
+            return d_min, level
+        end
+        if not peek then
+            self.burst = false
+            gw.burst_len = ((gw.burst_len or self.burst_count or 0) + (self.burst_count or 0)) / 2
+            self.burst_count = nil
+        end
+    elseif level <= burst_enter then
+        if not peek then self.burst, self.burst_count = true, 0 end
+        return d_min, level
+    end
+    if not peek then self:learn(level) end
+    return clamp(gw.hold_delay * growth ^ (level - setpoint), d_min, d_max), level
 end
 
 -- przed krokiem: opoznienie na nastepny takt (walker_delay czyta kazdy takt);
 -- log tylko przy zmianie wartosci
-function gw:apply_fatigue_delay()
+function gw:apply_step_delay()
     if not self.dynamic then return end
-    local delay, level = self:fatigue_delay()
-    if not delay or delay == amap.walker_delay then return end
+    local delay, level = self:step_delay()
+    if not delay then return end
+    delay = math.floor(delay * 10 + 0.5) / 10
+    if delay == amap.walker_delay then return end
     amap.walker_delay = delay
-    amap:print_log(string.format("ZME %d - opoznienie chodzika %s", level, tostring(delay)))
+    amap:print_log(string.format("ZME %d - opoznienie chodzika %s%s", level, tostring(delay),
+        self.burst and " (zryw)" or ""))
+end
+
+-- orientacyjny czas marszu: reszta zrywu po d_min, potem trzymanie po ~d*
+-- (dlugosc zrywu jest uczona - gw.burst_len, srednia z ostatnich zrywow)
+function gw:eta(steps)
+    local now = self:step_delay(true)
+    if not now then return nil end
+    local burst = 0
+    if now <= d_min then burst = clamp(gw.burst_len or burst_eta_init, 0, steps) end
+    return burst * d_min + (steps - burst) * math.max(gw.hold_delay, now)
+end
+
+-- ZME przy progu: pauza bez kroku (pauza siedzi w amap.walker_timer_id, wiec /stop
+-- i blokery ja kasuja), az zmeczenie zejdzie pod setpoint
+function gw:rest_pause()
+    if not self.dynamic then return false end
+    local level = fatigue_level()
+    if not level then return false end
+    if not self.resting and level < rest_level then return false end
+    if level < setpoint then
+        self.resting = false
+        self.last_level, self.level_steps = nil, nil
+        return false
+    end
+    if not self.resting then
+        self.resting = true
+        gw.hold_delay = clamp(gw.hold_delay * (1 + hold_up), hold_min, hold_max)
+        amap:print_log(string.format("ZME %d - odpoczynek, chodzik ruszy przy ZME %d", level, setpoint - 1))
+    end
+    amap.walker_timer_id = tempTimer(rest_tick, function()
+        if amap.walker then amap:auto_walker() end
+    end)
+    return true
 end
 
 -- opakowanie raz, odporne na przeladowanie pliku
 if not gw.original then gw.original = amap.auto_walker end
 function amap:auto_walker()
     if amap.walker_gates then
-        gw:apply_fatigue_delay()
+        if gw:rest_pause() then return end
+        gw:apply_step_delay()
         if gw:before_step() then return end
     end
     return gw.original(self)
@@ -108,6 +213,7 @@ end
 function gw:reset()
     if amap.walker_gates then self.stopped_at = getEpoch() end
     amap.walker_gates = false
+    self.resting = false
     self.path, self.knocked, self.pending_dest = nil, nil, nil
 end
 
@@ -218,13 +324,16 @@ function gw:go(target, delay, resume)
     end
 
     if not resume then self.walk = { dest = room, delay = delay, knocked = {} } end
-    -- bez podanego opoznienia chodzik jedzie na ZME (gw:apply_fatigue_delay)
+    -- bez podanego opoznienia chodzik jedzie na ZME (gw:apply_step_delay)
     self.dynamic = delay == nil
-    local step_delay = delay
-    if self.dynamic then step_delay = self:fatigue_delay() end
-    -- kroki razy opoznienie chodzika (bez przerw na bramy)
+    if self.dynamic and not resume then self.burst, self.last_level, self.resting = nil, nil, false end
+    local start_delay = delay
+    if self.dynamic then start_delay = self:step_delay(true) end
+    -- orientacyjny czas (bez przerw na bramy i na odpoczynek)
     local steps = #speedWalkPath
-    local seconds = math.floor(steps * (tonumber(step_delay) or amap.walker_delay or 0) + 0.5)
+    local seconds = self.dynamic and self:eta(steps)
+        or steps * (tonumber(start_delay) or amap.walker_delay or 0)
+    seconds = math.floor((seconds or steps * (amap.walker_delay or 0)) + 0.5)
     amap:print_log(string.format("/gnaj %d: %d krokow, %d:%02dm", room, steps, math.floor(seconds / 60), seconds % 60))
     local start = amap.curr.id
     self.path = { [0] = start }
@@ -235,7 +344,7 @@ function gw:go(target, delay, resume)
         gw.start_timer = nil
         gw.pending_dest = room
         -- po pauzie na brame ZME moze byc inne niz przy wywolaniu /gnaj
-        amap:speedwalk_from_id(tostring(room), gw.dynamic and gw:fatigue_delay() or delay)
+        amap:speedwalk_from_id(tostring(room), gw.dynamic and gw:step_delay(true) or delay)
     end
     -- pierwszy krok idzie z doSpeedWalk, nie z auto_walker
     local cmd = self:gate_between(start, self.path[1])

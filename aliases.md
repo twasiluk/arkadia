@@ -1006,7 +1006,16 @@ Ostatnia liczba to opóźnienie, chyba że wygląda na lokację (całkowita, co 
 
 `/gnaj <ID> <opóźnienie>` wywołane w trakcie chodzika do tego samego celu (lub do dalszego punktu bieżącej trasy) nie przerywa marszu, tylko zmienia opóźnienie - jak `/opoz`, ale bez zmiany wartości domyślnej. Działa od następnego kroku.
 
-Bez podanego opóźnienia chodzik idzie dynamicznie: przed każdym krokiem czyta ZME (zmęczenie z `#footer.main`) i ustawia opóźnienie z mapowania ZME 0-2 → 0.5, 3 → 2, 4 → 3, 5 → 6, 6 → 7, 7 → 9, 8 → 12, 9 → 20 (zmiana wartości idzie na log). Dopóki ZME nie jest znane (brak gmcp), zostaje opóźnienie z `/opoz`. Podane opóźnienie - przy wywołaniu albo w trakcie marszu - wyłącza dynamikę do końca tego chodzika (dotyczy też `/podroz`, który chodzi z opóźnieniem 4).
+Bez podanego opóźnienia chodzik idzie dynamicznie: przed każdym krokiem czyta ZME (zmęczenie z `#footer.main`) i sam dobiera opóźnienie, maksymalizując liczbę kroków na czas przy warunku ZME < 9 (przy 9 postać przestaje iść):
+
+- **zryw** - ZME do 6: krok co 0.5 s, czyli najszybciej jak wolno (wydajemy zapas zmęczenia);
+- **trzymanie** - ZME 7: opóźnienie ~ *d\** (break-even, przy którym ZME stoi w miejscu), czyli maksymalna podtrzymywalna prędkość; każdy poziom ZME nad 7 to 1.6 raza wolniej;
+- **odpoczynek** - ZME 8: pauza bez kroku (co 5 s sprawdzenie ZME), aż zmęczenie zejdzie do 6; dzięki temu chodzik nie dobije do 9 nawet przy przeciążeniu, gdzie żadne opóźnienie nie wystarcza;
+- **histereza** - gdy ZME spadnie do 4, znowu zryw. Profil wychodzi piłokształtny: krótkie zrywy przeplatane trzymaniem, zamiast jednej średniej prędkości. Na marszu dłuższym od zapasu średnia i tak dąży do 1/*d\**, ale każdy marsz krótszy od zapasu kończy się szybciej.
+
+*d\** zależy od postaci, obciążenia i terenu, więc nie jest wpisane na sztywno - chodzik uczy się go w marszu (AIMD: mnoży opóźnienie, gdy ZME uciekło w górę, odejmuje po 5 krokach bez wzrostu) i pamięta między marszami. Zmiana opóźnienia i wejście w odpoczynek idą na log. Orientacyjny czas w podsumowaniu `/gnaj` liczy resztę zrywu po 0.5 s, dalej po *d\** (bez przerw na bramy i odpoczynek).
+
+Dopóki ZME nie jest znane (brak gmcp), zostaje opóźnienie z `/opoz`. Podane opóźnienie - przy wywołaniu albo w trakcie marszu - wyłącza dynamikę do końca tego chodzika (dotyczy też `/podroz`, który chodzi z opóźnieniem 4).
 
 ## `/dalej`
 
