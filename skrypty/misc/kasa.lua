@@ -18,7 +18,11 @@ scripts.kasa = scripts.kasa or {
 local ka = scripts.kasa
 
 local estimate_discount = 0.2   -- zapas na blad oceny srebra i miedzi
-local reply_timeout = 5         -- czekanie na odpowiedz na policz/ocen
+local reply_timeout = 5         -- czekanie na odpowiedz na ocen
+local count_timeout = 20        -- czekanie na odpowiedz na policz (liczenie trwa)
+local busy_delay = 4            -- powtorka kroku po "Jestes zajety liczeniem"
+local busy_retries = 3          -- ile razy powtarzamy zajety krok
+local busy_window = 3           -- "zajety" liczy sie tylko tyle sekund po komendzie
 local store_key = "kasa"
 local label_color = "#ffd700"
 
@@ -170,6 +174,15 @@ function ka:check_label()
 end
 
 -- ---------- przeliczenie sakwy ----------
+-- "policz <rodzaj> monety" blokuje postac na czas liczenia (kolejna komenda
+-- dostaje "Jestes zajety liczeniem"), wiec kroki ida po kolei: komenda ->
+-- odpowiedz (albo timeout) -> nastepna komenda
+local steps = {
+    { kind = "zl", command = "policz zlote monety", timeout = count_timeout },
+    { kind = "sr", command = "ocen srebrne monety", timeout = reply_timeout },
+    { kind = "mdz", command = "ocen miedziane monety", timeout = reply_timeout },
+}
+
 function ka:clear_pending()
     for _, id in ipairs(self.timers) do killTimer(id) end
     self.timers = {}
@@ -177,37 +190,67 @@ function ka:clear_pending()
     self.valuing = nil
 end
 
-function ka:answered(kind)
+function ka:send_step()
+    local step = steps[self.pending.index]
+    self.pending.retries = 0
+    self.pending.sent_at = os.time()
+    self.valuing = nil
+    table.insert(self.timers, tempTimer(step.timeout, function()
+        if not ka.pending or steps[ka.pending.index] ~= step then return end
+        print_log("<DimGrey>bez odpowiedzi: " .. coin_name[step.kind] .. " monety")
+        ka:next_step()
+    end))
+    send(step.command)
+end
+
+function ka:next_step()
     if not self.pending then return end
-    if self.pending[kind] then
-        self.pending[kind] = nil
-        self.pending.left = self.pending.left - 1
-    end
-    if self.pending.left <= 0 then
+    for _, id in ipairs(self.timers) do killTimer(id) end
+    self.timers = {}
+    self.pending.index = self.pending.index + 1
+    if self.pending.index > #steps then
         self:clear_pending()
         self:print_purse()
+        return
     end
+    self:send_step()
+end
+
+-- odpowiedz na aktualny krok; linie z innego liczenia (np. recznego)
+-- nie przestawiaja sekwencji
+function ka:answered(kind)
+    if not self.pending then return end
+    if steps[self.pending.index].kind ~= kind then return end
+    self:next_step()
+end
+
+-- "Jestes zajety liczeniem" - nasza komenda nie przeszla, powtarzamy krok.
+-- Ta sama linia leci, gdy w trakcie naszego liczenia cos wysle gracz -
+-- wtedy przychodzi pozniej niz busy_window i zostawiamy krok w spokoju
+function ka:busy()
+    if not self.pending then return end
+    if os.time() - (self.pending.sent_at or 0) > busy_window then return end
+    local step = steps[self.pending.index]
+    if self.pending.retries >= busy_retries then
+        print_log("<DimGrey>liczenie zajete - pomijam " .. coin_name[step.kind] .. " monety")
+        return self:next_step()
+    end
+    self.pending.retries = self.pending.retries + 1
+    print_log(string.format("<DimGrey>liczenie zajete - %s monety za %d s (%d/%d)",
+        coin_name[step.kind], busy_delay, self.pending.retries, busy_retries))
+    table.insert(self.timers, tempTimer(busy_delay, function()
+        if not ka.pending or steps[ka.pending.index] ~= step then return end
+        ka.pending.sent_at = os.time()
+        send(step.command)
+    end))
 end
 
 -- policz zloto (pewne) + ocen srebro i miedz (z rabatem)
 function ka:refresh()
     if self.pending then return print_log("<DimGrey>licze juz monety") end
-    self.pending = { left = 3, zl = true, sr = true, mdz = true }
-    table.insert(self.timers, tempTimer(reply_timeout, function()
-        if not ka.pending then return end
-        local missing = {}
-        for _, kind in ipairs(coin_order) do
-            if ka.pending[kind] then table.insert(missing, coin_name[kind]) end
-        end
-        ka:clear_pending()
-        if #missing > 0 then
-            print_log("<DimGrey>bez odpowiedzi: " .. table.concat(missing, ", ") .. " monety")
-        end
-        ka:print_purse()
-    end))
-    send("policz zlote monety")
-    send("ocen srebrne monety")
-    send("ocen miedziane monety")
+    self:clear_pending()
+    self.pending = { index = 1, retries = 0 }
+    self:send_step()
 end
 
 -- ---------- wydruk ----------
@@ -295,6 +338,10 @@ local triggers = {
         if not kind then return end
         ka:set_counted(kind, 0)
         ka:answered(kind)
+    end,
+    -- postac liczy juz co innego - krok trzeba powtorzyc
+    ["^Jestes zajety liczeniem"] = function()
+        ka:busy()
     end,
     -- "======= Oceniasz starannie wiele srebrnych monet. ========"
     ["Oceniasz(?: starannie)? .*?(zlot|srebrn|miedzian)\\w* monet"] = function()
