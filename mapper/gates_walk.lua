@@ -7,13 +7,12 @@
 --  amap:auto_walker, pauza w amap.walker_timer_id (kasuje ja /stop i blokery).
 --  Brama nieoznaczona: po odbiciu stuka i wznawia /gnaj (gw:gate_stopped).
 --
---  /gnaj przyjmuje kilka celow (punkty trasy) i opoznienie na koncu:
---  "/gnaj 7640 7615 8122 3". Powtorzony /gnaj do celu, do ktorego chodzik
---  wlasnie idzie, tylko zmienia opoznienie (jak /opoz).
+--  /gnaj przyjmuje kilka celow (punkty trasy): "/gnaj 7640 7615 8122".
 --
---  Bez podanego opoznienia chodzik idzie dynamicznie: przed kazdym krokiem
---  czyta ZME (zmeczenie z #footer.main) i ustawia opoznienie z mapowania
---  fatigue_to_delay. Podane opoznienie wylacza dynamike na ten chodzik.
+--  Opoznienie kroku jest zawsze dynamiczne - przed kazdym krokiem chodzik
+--  czyta ZME (zmeczenie z #footer.main) i sam dobiera tempo (gw:step_delay).
+--  Opoznienie na koncu komendy ("/gnaj 7640 4") jest przyjmowane dla zgodnosci
+--  ze starymi wywolaniami (m.in. /podroz), ale ignorowane.
 -- ============================================================
 
 amap.gates_walk = amap.gates_walk or {}
@@ -156,7 +155,6 @@ end
 -- przed krokiem: opoznienie na nastepny takt (walker_delay czyta kazdy takt);
 -- log tylko przy zmianie wartosci
 function gw:apply_step_delay()
-    if not self.dynamic then return end
     local delay, level = self:step_delay()
     if not delay then return end
     delay = math.floor(delay * 10 + 0.5) / 10
@@ -179,7 +177,6 @@ end
 -- ZME przy progu: pauza bez kroku (pauza siedzi w amap.walker_timer_id, wiec /stop
 -- i blokery ja kasuja), az zmeczenie zejdzie pod setpoint
 function gw:rest_pause()
-    if not self.dynamic then return false end
     local level = fatigue_level()
     if not level then return false end
     if not self.resting and level < rest_level then return false end
@@ -243,7 +240,7 @@ function gw:resume()
     walk.knocked[room] = true
     self.start_timer = self:knock(amap.gate_bind or "zastukaj we wrota", function()
         gw.start_timer = nil
-        gw:go(tostring(walk.dest), walk.delay, true)
+        gw:go(tostring(walk.dest), true)
     end)
 end
 
@@ -260,22 +257,21 @@ local function resolve_room(target)
     return tonumber(room)
 end
 
--- ostatnia liczba to opoznienie (jak dotad: "/gnaj 7640 4"), chyba ze wyglada
+-- ostatnia liczba to ignorowane opoznienie ("/gnaj 7640 4"), chyba ze wyglada
 -- na lokacje: calkowita, co najmniej delay_limit i istniejaca na mapie
 -- ("/gnaj 7640 7615" to dwa punkty trasy)
 local function parse_args(text)
     local targets = {}
     for word in string.gmatch(text, "%S+") do table.insert(targets, word) end
-    if #targets < 2 then return targets, nil end
+    if #targets < 2 then return targets end
     local last = targets[#targets]
     local number = tonumber(last)
     local looks_like_room = number and last:match("^%d+$")
         and number >= delay_limit and roomExists(number)
     if number and not looks_like_room then
         table.remove(targets)
-        return targets, last
     end
-    return targets, nil
+    return targets
 end
 
 -- cel, do ktorego chodzik wlasnie idzie, albo dalszy punkt biezacej trasy
@@ -288,22 +284,12 @@ function gw:walking_to(room)
     return false
 end
 
--- opoznienie dziala od nastepnego kroku (walker_delay czyta kazdy takt);
--- bez zmiany /opoz, czyli domyslnego amap.set_walker_delay
-function gw:set_delay(delay)
-    self.dynamic = false
-    amap.walker_delay = delay
-    if self.walk then self.walk.delay = tostring(delay) end
-    if self.queue then self.queue.delay = tostring(delay) end
-    amap:print_log("Zmienilem opoznienie chodzika do " .. tostring(delay))
-end
-
--- /gnaj <id|skrot> [opoznienie]
-function gw:go(target, delay, resume)
+-- /gnaj <id|skrot>
+function gw:go(target, resume)
     if amap.walker then
-        local room, new_delay = resolve_room(target), tonumber(delay)
-        if room and new_delay and self:walking_to(room) then
-            self:set_delay(new_delay)
+        local room = resolve_room(target)
+        if room and self:walking_to(room) then
+            amap:print_log("Chodzik juz tam idzie, tempo i tak jedzie na ZME")
             return true
         end
         amap:print_log("Chodzik aktualnie pracuje, najpierw zastopuj uzywajac '/stop'")
@@ -312,7 +298,6 @@ function gw:go(target, delay, resume)
     if self.start_timer then killTimer(self.start_timer); self.start_timer = nil end
     if self.queue_cancel then killTimer(self.queue_cancel); self.queue_cancel = nil end
 
-    if delay == "" then delay = nil end
     local room = resolve_room(target)
     if not room then
         amap:print_log("Nie znam lokacji ani skrotu: " .. target)
@@ -323,17 +308,13 @@ function gw:go(target, delay, resume)
         return false
     end
 
-    if not resume then self.walk = { dest = room, delay = delay, knocked = {} } end
-    -- bez podanego opoznienia chodzik jedzie na ZME (gw:apply_step_delay)
-    self.dynamic = delay == nil
-    if self.dynamic and not resume then self.burst, self.last_level, self.resting = nil, nil, false end
-    local start_delay = delay
-    if self.dynamic then start_delay = self:step_delay(true) end
+    if not resume then
+        self.walk = { dest = room, knocked = {} }
+        self.burst, self.last_level, self.resting = nil, nil, false
+    end
     -- orientacyjny czas (bez przerw na bramy i na odpoczynek)
     local steps = #speedWalkPath
-    local seconds = self.dynamic and self:eta(steps)
-        or steps * (tonumber(start_delay) or amap.walker_delay or 0)
-    seconds = math.floor((seconds or steps * (amap.walker_delay or 0)) + 0.5)
+    local seconds = math.floor((self:eta(steps) or steps * (amap.walker_delay or 0)) + 0.5)
     amap:print_log(string.format("/gnaj %d: %d krokow, %d:%02dm", room, steps, math.floor(seconds / 60), seconds % 60))
     local start = amap.curr.id
     self.path = { [0] = start }
@@ -344,7 +325,7 @@ function gw:go(target, delay, resume)
         gw.start_timer = nil
         gw.pending_dest = room
         -- po pauzie na brame ZME moze byc inne niz przy wywolaniu /gnaj
-        amap:speedwalk_from_id(tostring(room), gw.dynamic and gw:step_delay(true) or delay)
+        amap:speedwalk_from_id(tostring(room), gw:step_delay(true))
     end
     -- pierwszy krok idzie z doSpeedWalk, nie z auto_walker
     local cmd = self:gate_between(start, self.path[1])
@@ -370,7 +351,7 @@ function gw:next_leg()
     if #queue.targets > 1 then
         amap:print_log(string.format("/gnaj etap %d/%d: %s", queue.index, #queue.targets, target))
     end
-    if not self:go(target, queue.delay) then self.queue = nil end
+    if not self:go(target) then self.queue = nil end
 end
 
 -- nastepny etap startuje po potwierdzeniu lokacji: amapWalkerFinished leci
@@ -425,11 +406,11 @@ function gw:init()
         "amapGateStopped", function() gw:gate_stopped() end)
     if self.alias then killAlias(self.alias) end
     self.alias = tempAlias("^/gnaj\\s+(\\S+(?:\\s+\\S+)*)$", function()
-        local targets, delay = parse_args(matches[2])
-        -- powtorzony /gnaj w trakcie chodzika: tylko opoznienie, bez nowej trasy
-        if amap.walker then return gw:go(targets[1], delay) end
+        local targets = parse_args(matches[2])
+        -- powtorzony /gnaj w trakcie chodzika nie przerywa marszu
+        if amap.walker then return gw:go(targets[1]) end
         if gw.queue_timer then killTimer(gw.queue_timer); gw.queue_timer = nil end
-        gw.queue = { targets = targets, index = 0, delay = delay }
+        gw.queue = { targets = targets, index = 0 }
         gw:next_leg()
     end)
 end

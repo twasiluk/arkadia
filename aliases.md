@@ -996,17 +996,17 @@ Wyznacza ścieżkę do lokacji o podanym ID.
 Planowo rozpoczyna marsz do lokacji po upływie określonego czasu.
 
 
-## `/gnaj <ID|skrót> [<ID|skrót> ...] [<opóźnienie>]`
+## `/gnaj <ID|skrót> [<ID|skrót> ...]`
 
 Jak `/idz`, ale przed przejściem przez bramę (krok między dwoma lokacjami oznaczonymi na mapie jako brama) wysyła komendę otwarcia (np. `uderz w brame`) i czeka losowo 1-3 s. Bez automatycznego ponawiania - jeśli brama się nie otworzy, działa zwykły keybind otwierania bramy.
 
-Kilka celów = punkty trasy przechodzone po kolei, np. `/gnaj 7640 7615 8122 3` (opóźnienie 3) idzie na 7640, po dojściu na 7615, potem na 8122. Następny etap startuje po potwierdzeniu lokacji przez mapper. Przerwany chodzik (`/stop`, bloker) kasuje pozostałe etapy - poza stuknięciem w nieoznaczoną bramę, które wznawia bieżący etap i trasa leci dalej.
+Kilka celów = punkty trasy przechodzone po kolei, np. `/gnaj 7640 7615 8122` idzie na 7640, po dojściu na 7615, potem na 8122. Następny etap startuje po potwierdzeniu lokacji przez mapper. Przerwany chodzik (`/stop`, bloker) kasuje pozostałe etapy - poza stuknięciem w nieoznaczoną bramę, które wznawia bieżący etap i trasa leci dalej.
 
-Ostatnia liczba to opóźnienie, chyba że wygląda na lokację (całkowita, co najmniej 100 i istniejąca na mapie) - czyli `/gnaj 7640 4` to opóźnienie 4 (jak dotąd), a `/gnaj 7640 7615` to dwa punkty trasy.
+Ostatnia liczba jest przyjmowana jako opóźnienie (dla zgodności ze starymi wywołaniami, np. z `/podroz`), ale **ignorowana** - tempo zawsze liczy się z ZME. Liczba, która wygląda na lokację (całkowita, co najmniej 100 i istniejąca na mapie), zostaje punktem trasy - czyli w `/gnaj 7640 4` czwórka leci do kosza, a `/gnaj 7640 7615` to dwa punkty trasy.
 
-`/gnaj <ID> <opóźnienie>` wywołane w trakcie chodzika do tego samego celu (lub do dalszego punktu bieżącej trasy) nie przerywa marszu, tylko zmienia opóźnienie - jak `/opoz`, ale bez zmiany wartości domyślnej. Działa od następnego kroku.
+`/gnaj <ID>` wywołane w trakcie chodzika do tego samego celu (lub do dalszego punktu bieżącej trasy) nie przerywa marszu - tylko wypisuje, że chodzik już tam idzie.
 
-Bez podanego opóźnienia chodzik idzie dynamicznie: przed każdym krokiem czyta ZME (zmęczenie z `#footer.main`) i sam dobiera opóźnienie, maksymalizując liczbę kroków na czas przy warunku ZME < 9 (przy 9 postać przestaje iść):
+Opóźnienie kroku jest dynamiczne: przed każdym krokiem chodzik czyta ZME (zmęczenie z `#footer.main`) i sam dobiera opóźnienie, maksymalizując liczbę kroków na czas przy warunku ZME < 9 (przy 9 postać przestaje iść):
 
 - **zryw** - ZME do 6: krok co 0.5 s, czyli najszybciej jak wolno (wydajemy zapas zmęczenia);
 - **trzymanie** - ZME 7: opóźnienie ~ *d\** (break-even, przy którym ZME stoi w miejscu), czyli maksymalna podtrzymywalna prędkość; każdy poziom ZME nad 7 to 1.6 raza wolniej;
@@ -1015,7 +1015,7 @@ Bez podanego opóźnienia chodzik idzie dynamicznie: przed każdym krokiem czyta
 
 *d\** zależy od postaci, obciążenia i terenu, więc nie jest wpisane na sztywno - chodzik uczy się go w marszu (AIMD: mnoży opóźnienie, gdy ZME uciekło w górę, odejmuje po 5 krokach bez wzrostu) i pamięta między marszami. Zmiana opóźnienia i wejście w odpoczynek idą na log. Orientacyjny czas w podsumowaniu `/gnaj` liczy resztę zrywu po 0.5 s, dalej po *d\** (bez przerw na bramy i odpoczynek).
 
-Dopóki ZME nie jest znane (brak gmcp), zostaje opóźnienie z `/opoz`. Podane opóźnienie - przy wywołaniu albo w trakcie marszu - wyłącza dynamikę do końca tego chodzika (dotyczy też `/podroz`, który chodzi z opóźnieniem 4).
+Dopóki ZME nie jest znane (brak gmcp), zostaje opóźnienie z `/opoz`. Dynamiki nie da się wyłączyć parametrem - dotyczy to też chodzików uruchamianych przez `/podroz`, `/trasa`, `/kurier` i `/paczka`. Na stałe inne tempo: `/idz` (zwykły chodzik z `/opoz`, bez stukania w bramy).
 
 ## `/dalej`
 

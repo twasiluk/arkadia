@@ -34,8 +34,9 @@ local function print_log(msg)
     cecho("\n<CadetBlue>(podroz)<reset>: " .. msg .. "\n")
 end
 
--- Chodzik podrozy biegnie szybciej niz ustawienie gracza (/opoz), wiec przed
--- pierwszym /gnaj zapamietujemy opoznienie i przywracamy je na koniec podrozy.
+-- Opoznienie podawane do /gnaj jest ignorowane - chodzik /gnaj zawsze jedzie na
+-- ZME (mapper/gates_walk.lua). Zostaje tu dla zgodnosci, razem z zapamietaniem
+-- i przywroceniem opoznienia gracza (/opoz) na koniec podrozy.
 local walk_delay = 4
 
 function scripts.podroz:save_delay()
