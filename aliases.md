@@ -1006,6 +1006,8 @@ Ostatnia liczba jest przyjmowana jako opóźnienie (dla zgodności ze starymi wy
 
 `/gnaj <ID>` wywołane w trakcie chodzika do tego samego celu (lub do dalszego punktu bieżącej trasy) nie przerywa marszu - tylko wypisuje, że chodzik już tam idzie.
 
+Kliknięcie w lokację na mapie wypisuje klikalne `/gnaj <ID>` z nazwą lokacji i liczbą kroków (sama podpowiedź - nic nie rusza; dwuklik, jak dotąd, od razu uruchamia chodzika). Liczba kroków tylko gdy chodzik stoi.
+
 Opóźnienie kroku jest dynamiczne: przed każdym krokiem chodzik czyta ZME (zmęczenie z `#footer.main`) i sam dobiera opóźnienie, maksymalizując liczbę kroków na czas przy warunku ZME < 9 (przy 9 postać przestaje iść):
 
 - **zryw** - ZME do 6: krok co 0.5 s, czyli najszybciej jak wolno (wydajemy zapas zmęczenia);

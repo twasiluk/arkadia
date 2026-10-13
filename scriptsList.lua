@@ -50,6 +50,7 @@ return {
     "skrypty/boxes",
     "mapper/gates",
     "mapper/gates_walk",
+    "mapper/map_click",
     "mapper/starters",
     "mapper/directions-ui",
     "mapper/pausers",
