@@ -378,10 +378,11 @@ end
 
 -- ---------- etap 4: podroz ----------
 -- adresat-instytucja ("BANK WYZIMSKI", "POCZTA W NULN", "PIEKARNIA ...",
--- "RATUSZ MIEJSKI, MARIBOR", "TAWERNA 'POD GROTEM WLOCZNI', NOVIGRAD"):
--- bez przedstawiania i odmiany, paczke zostawia sie "oddaj paczke"
+-- "RATUSZ MIEJSKI, MARIBOR", "TAWERNA 'POD GROTEM WLOCZNI', NOVIGRAD",
+-- "URZAD POCZTOWY W DAEVON, DAEVON"): bez przedstawiania i odmiany, paczke
+-- zostawia sie "oddaj paczke"
 local place_prefixes = { "bank", "poczta", "piekarnia", "ratusz", "tawerna",
-    "zajazd", "zaklad", "pracownia" }
+    "zajazd", "zaklad", "pracownia", "urzad" }
 
 local function is_place(name)
     local lowered = string.lower(name or "")
