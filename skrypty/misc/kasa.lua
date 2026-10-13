@@ -86,26 +86,29 @@ function ka:save()
 end
 
 -- ---------- sakwa ----------
--- wartosc jednego rodzaju monet: policzone licza sie w calosci,
--- ocenione po scieciu rabatu
-function ka:set_counted(kind, count)
+-- wartosc jednego rodzaju monet: policzone ("policz") i pewne wyceny
+-- ("Jest tu <n> sztuk wartych <x> miedziakow") licza sie w calosci,
+-- niepewne ("Wydaje ci sie, ze ...") po scieciu rabatu
+function ka:set_coins(kind, count, value, source)
     self.purse[kind] = {
         count = count,
-        value = count * coin_value[kind],
-        source = "policz",
+        value = value,
+        source = source,
         at = os.time(),
     }
     self:after_change()
 end
 
-function ka:set_valued(kind, count, value)
-    self.purse[kind] = {
-        count = count,
-        value = math.floor(value * (1 - estimate_discount)),
-        source = "ocen",
-        at = os.time(),
-    }
-    self:after_change()
+function ka:set_counted(kind, count)
+    self:set_coins(kind, count, count * coin_value[kind], "policz")
+end
+
+function ka:set_valued(kind, count, value, certain)
+    if certain then
+        self:set_coins(kind, count, value, "ocen")
+    else
+        self:set_coins(kind, count, math.floor(value * (1 - estimate_discount)), "ocen~")
+    end
 end
 
 -- monety, ktore wlasnie wpadly do sakwy - znamy je dokladnie, wiec
@@ -270,7 +273,7 @@ end
 function ka:print_purse()
     self:check_label()
     print_log(self:purse_line())
-    print_log(string.format("<gold>Au %d<reset> (%s<reset>), ocena srebra i miedzi scieta o %d%%",
+    print_log(string.format("<gold>Au %d<reset> (%s<reset>), niepewna ocena (ocen~) scieta o %d%%",
         self:gold(), misc:get_valued_string(self:value()), math.floor(estimate_discount * 100)))
 end
 
@@ -297,6 +300,15 @@ function ka:print_earnings()
         cecho(string.format("  <DimGrey>%s:<reset> %d x,%s\n", data.payer, data.count,
             misc:get_valued_string(data.value)))
     end
+end
+
+-- wycena stosika monet z "ocen" - rodzaj bierze z naglowka oceny
+function ka:valued(count, value, certain)
+    local kind = self.valuing
+    if not kind then return end
+    self.valuing = nil
+    self:set_valued(kind, count, value, certain)
+    self:answered(kind)
 end
 
 -- ---------- wyplaty kurierskie ----------
@@ -347,13 +359,13 @@ local triggers = {
     ["Oceniasz(?: starannie)? .*?(zlot|srebrn|miedzian)\\w* monet"] = function()
         ka.valuing = coin_kind(matches[2])
     end,
-    -- "Wydaje ci sie, ze jest tu 60 sztuk wartych 720 miedziakow, czyli 3 zl."
+    -- wycena niepewna: "Wydaje ci sie, ze jest tu 60 sztuk wartych 720 miedziakow, czyli 3 zl."
     ["^Wydaje ci sie, ze (?:jest|sa) tu (\\d+) sztu\\w+ wart\\w+ (\\d+) miedziak\\w*"] = function()
-        local kind = ka.valuing
-        if not kind then return end
-        ka.valuing = nil
-        ka:set_valued(kind, tonumber(matches[2]), tonumber(matches[3]))
-        ka:answered(kind)
+        ka:valued(tonumber(matches[2]), tonumber(matches[3]), false)
+    end,
+    -- wycena pewna (maly stosik): "Jest tu 9 sztuk wartych 100 miedziakow, czyli 8 sr, 4 mdz."
+    ["^(?:Jest|Sa) tu (\\d+) sztu\\w+ wart\\w+ (\\d+) miedziak\\w*"] = function()
+        ka:valued(tonumber(matches[2]), tonumber(matches[3]), true)
     end,
     -- "Tark wyplaca ci 1 zlota, 1 srebrna i 1 miedziana monete."
     ["^(\\S+) wyplaca ci (.+)\\.$"] = function()
