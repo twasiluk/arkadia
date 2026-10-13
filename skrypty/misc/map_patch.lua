@@ -12,7 +12,9 @@
 --  ale i tak zniknie on przy nastepnej wersji mapy.
 --
 --  Poprawki wchodza same: na starcie profilu, po /zaladuj_mape i po
---  pobraniu nowej wersji mapy.
+--  pobraniu nowej wersji mapy. Mapa dochodzi regionami, wiec poprawki
+--  do lokacji, ktorych jeszcze nie ma, czekaja w kolejce i wchodza przy
+--  wejsciu w nowy obszar.
 --
 --  /map_patch - naklada poprawki ponownie i wypisuje, co zrobil
 -- ============================================================
@@ -121,6 +123,44 @@ local function map_loaded()
     return next(amap.internal_to_mudlet_id or {}) ~= nil
 end
 
+-- ============================================================
+--  Doladowywanie regionow
+--
+--  Mapa nie przychodzi cala naraz - regiony dochodza w trakcie gry,
+--  wiec lokacji z poprawki moze jeszcze nie byc. To nie blad, tylko
+--  stan przejsciowy: takie poprawki ida do kolejki i wracamy do nich,
+--  az sie wyczerpie. Dlatego automatyczne przebiegi milcza o brakach,
+--  a mowi o nich tylko /map_patch.
+--
+--  amap:init_map_data() indeksuje id wewnetrzne raz, dla lokacji
+--  zaladowanych w tamtej chwili, wiec przed kazda proba uzupelniamy
+--  indeks o to, co doszlo pozniej.
+-- ============================================================
+local function reindex()
+    for id in pairs(getRooms() or {}) do
+        local internal_id = getRoomUserData(id, "internal_id")
+        if internal_id and internal_id ~= "" and amap.internal_to_mudlet_id[internal_id] == nil then
+            amap.internal_to_mudlet_id[internal_id] = id
+        end
+    end
+end
+
+-- kolejka poprawek do nalozenia; pelna lista po kazdym zaladowaniu mapy,
+-- bo swiezy plik mapy przychodzi bez naszych zmian
+function scripts.map_patch:reset_pending()
+    local pending = {}
+    for key, props in pairs(patches) do pending[key] = props end
+    self.pending = pending
+    self.last_area = nil
+end
+
+function scripts.map_patch:pending_keys()
+    local keys = {}
+    for key in pairs(self.pending or {}) do table.insert(keys, tostring(key)) end
+    table.sort(keys)
+    return keys
+end
+
 -- zwraca liczbe poprawionych lokacji albo nil, gdy mapy jeszcze nie ma
 function scripts.map_patch:apply(verbose)
     if next(patches) == nil then
@@ -131,12 +171,12 @@ function scripts.map_patch:apply(verbose)
         if verbose then log("<tomato>mapa nie jest zaladowana") end
         return nil
     end
-    local applied, missing = 0, {}
-    for key, props in pairs(patches) do
+    if not self.pending then self:reset_pending() end
+    reindex()
+    local applied = 0
+    for key, props in pairs(self.pending) do
         local id = resolve(key)
-        if not id then
-            table.insert(missing, tostring(key))
-        else
+        if id then
             for prop, value in pairs(props) do
                 local setter = setters[prop]
                 if setter then
@@ -147,16 +187,30 @@ function scripts.map_patch:apply(verbose)
                     setRoomUserData(id, prop, tostring(value))
                 end
             end
+            self.pending[key] = nil
             applied = applied + 1
         end
     end
-    if #missing > 0 then
-        log("<tomato>brak na mapie: " .. table.concat(missing, ", "))
-    end
-    if verbose or #missing > 0 then
-        log("<DimGrey>poprawione lokacje: " .. applied)
+    if verbose then
+        local waiting = self:pending_keys()
+        local total = 0
+        for _ in pairs(patches) do total = total + 1 end
+        log("<DimGrey>poprawione lokacje: " .. (total - #waiting) .. "/" .. total ..
+            (applied > 0 and " (nowych: " .. applied .. ")" or ""))
+        if #waiting > 0 then
+            log("<DimGrey>czekaja na doladowanie regionu: " .. table.concat(waiting, ", "))
+        end
     end
     return applied
+end
+
+-- nowy obszar moze przyniesc lokacje, na ktore czekaja poprawki
+function scripts.map_patch:on_new_location()
+    if not self.pending or next(self.pending) == nil then return end
+    local area = amap.curr and amap.curr.area
+    if area == nil or area == self.last_area then return end
+    self.last_area = area
+    self:apply()
 end
 
 -- ============================================================
@@ -175,6 +229,7 @@ end
 
 function amap:init_map_data()
     scripts.map_patch.original(self)
+    scripts.map_patch:reset_pending()
     scripts.map_patch:apply()
 end
 
@@ -207,6 +262,11 @@ function scripts.map_patch:init()
     table.insert(self.aliases, tempAlias("^/map_patch$", function()
         scripts.map_patch:apply(true)
     end))
+
+    -- doladowanie regionu: wracamy do poprawek czekajacych na lokacje
+    self.location_handler = scripts.event_register:force_register_event_handler(
+        self.location_handler, "amapNewLocation",
+        function() scripts.map_patch:on_new_location() end, true)
 
     -- start profilu (sysLoadEvent leci takze przy przeladowaniu profilu)
     self.load_handler = scripts.event_register:force_register_event_handler(
