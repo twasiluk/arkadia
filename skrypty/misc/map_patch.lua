@@ -98,8 +98,27 @@ local function resolve(key)
     return nil
 end
 
+-- czy ktorys klucz jest id wewnetrznym ("i...") - tylko takie potrzebuja indeksu
+local needs_internal_ids = false
+for key in pairs(patches) do
+    if not tonumber(key) then needs_internal_ids = true end
+end
+
+-- ============================================================
+--  Gotowosc mapy
+--
+--  Same lokacje to za maly warunek. Mudlet wczytuje plik mapy razem z
+--  profilem, ale indeks id wewnetrznych buduje dopiero
+--  amap:init_map_data(), a core.lua odpala je z tempTimera - przy
+--  ladowaniu skryptow lokacje wiec juz sa, a klucze "i..." jeszcze sie
+--  nie rozwiazuja. Bez tego warunku pierwsze podejscie zglaszalo
+--  wszystkie poprawki jako "brak na mapie" i - bo apply() zwracalo 0,
+--  czyli wartosc prawdziwa - gasilo ponawianie.
+-- ============================================================
 local function map_loaded()
-    return next(getRooms() or {}) ~= nil
+    if next(getRooms() or {}) == nil then return false end
+    if not needs_internal_ids then return true end
+    return next(amap.internal_to_mudlet_id or {}) ~= nil
 end
 
 -- zwraca liczbe poprawionych lokacji albo nil, gdy mapy jeszcze nie ma
