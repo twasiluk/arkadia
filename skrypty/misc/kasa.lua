@@ -23,6 +23,8 @@ local count_timeout = 20        -- czekanie na odpowiedz na policz (liczenie trw
 local busy_delay = 4            -- powtorka kroku po "Jestes zajety liczeniem"
 local busy_retries = 3          -- ile razy powtarzamy zajety krok
 local busy_window = 3           -- "zajety" liczy sie tylko tyle sekund po komendzie
+local auto_delay = 4            -- zwloka po wsiadaniu, zanim policzymy sakwe
+local auto_debounce = 60        -- kolejne wsiadanie w tym czasie nie liczy od nowa
 local store_key = "kasa"
 local label_color = "#ffd700"
 
@@ -64,6 +66,7 @@ function ka:blank()
     return {
         purse = {},
         earnings = { total = 0, count = 0, payers = {}, last = nil },
+        auto = true,
     }
 end
 
@@ -71,18 +74,23 @@ function ka:load()
     local stored = scripts.state_store:get(store_key)
     local blank = self:blank()
     if type(stored) ~= "table" then
-        self.purse, self.earnings = blank.purse, blank.earnings
+        self.purse, self.earnings, self.auto = blank.purse, blank.earnings, blank.auto
         return
     end
     self.purse = type(stored.purse) == "table" and stored.purse or blank.purse
     self.earnings = type(stored.earnings) == "table" and stored.earnings or blank.earnings
+    self.auto = stored.auto ~= false
     self.earnings.payers = self.earnings.payers or {}
     self.earnings.total = self.earnings.total or 0
     self.earnings.count = self.earnings.count or 0
 end
 
 function ka:save()
-    scripts.state_store:set(store_key, { purse = self.purse, earnings = self.earnings })
+    scripts.state_store:set(store_key, {
+        purse = self.purse,
+        earnings = self.earnings,
+        auto = self.auto,
+    })
 end
 
 -- ---------- sakwa ----------
@@ -256,6 +264,31 @@ function ka:refresh()
     self:send_step()
 end
 
+-- ---------- wsiadanie do pojazdu ----------
+-- podrozBoarded leci z triggerow na liniach wsiadania (statek, dylizans,
+-- woz), takze gdy /podroz nie dziala. Bilet wlasnie zmienil stan sakwy,
+-- a przejazd trwa, wiec jest czas na policzenie monet. Kilka wzorcow moze
+-- zlapac to samo wsiadanie - stad debounce
+function ka:on_boarded(vehicle)
+    if not self.auto or self.pending then return end
+    local now = os.time()
+    if self.auto_at and now - self.auto_at < auto_debounce then return end
+    self.auto_at = now
+    if self.auto_timer then killTimer(self.auto_timer) end
+    self.auto_timer = tempTimer(auto_delay, function()
+        scripts.kasa.auto_timer = nil
+        if not scripts.kasa.auto or scripts.kasa.pending then return end
+        print_log("<DimGrey>" .. tostring(vehicle) .. " - przeliczam sakwe")
+        scripts.kasa:refresh()
+    end)
+end
+
+function ka:toggle_auto()
+    self.auto = not self.auto
+    self:save()
+    print_log("liczenie po wsiadaniu: " .. (self.auto and "<green>wlaczone" or "<tomato>wylaczone"))
+end
+
 -- ---------- wydruk ----------
 function ka:purse_line()
     local parts = {}
@@ -378,6 +411,7 @@ local aliases = {
     ["^/kasa$"] = function() scripts.kasa:refresh() end,
     ["^/kasa stan$"] = function() scripts.kasa:print_purse() end,
     ["^/kasa kursy$"] = function() scripts.kasa:print_earnings() end,
+    ["^/kasa auto$"] = function() scripts.kasa:toggle_auto() end,
     ["^/kasa reset$"] = function() scripts.kasa:reset() end,
 }
 
@@ -394,6 +428,12 @@ function ka:init()
     for regex, callback in pairs(triggers) do
         table.insert(self.triggers, tempRegexTrigger(regex, callback))
     end
+    if self.auto_timer then killTimer(self.auto_timer) end
+    self.auto_timer, self.auto_at = nil, nil
+    self.boarded_handler = scripts.event_register:force_register_event_handler(
+        self.boarded_handler, "podrozBoarded", function(_, vehicle)
+            scripts.kasa:on_boarded(vehicle)
+        end)
     self.label_click = nil
     self.ui_handler = scripts.event_register:force_register_event_handler(
         self.ui_handler, "uiReady", function()

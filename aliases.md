@@ -1476,6 +1476,12 @@ Stan sakwy trafia do elementu belki stanow (`Au 201`) - zeby go widziec, trzeba 
 
 Linia `<ktos> wyplaca ci <monety>.` (wyplaty za kursy kurierskie) dolicza monety do sakwy i do zarobkow - bez przeliczania sakwy od nowa.
 
+Po wsiadaniu na statek, do dylizansu, wozu lub powozu (event `podrozBoarded`, czyli takze poza `/podroz`) sakwa jest przeliczana sama, 4 s po wsiadaniu - bilet wlasnie zmienil jej stan, a przejazd trwa. Kolejne wsiadanie w ciagu 60 s nie liczy od nowa (kilka wzorcow lapie te sama linie). Przelacznik: `/kasa auto`.
+
+## `/kasa auto`
+
+Wlacza/wylacza liczenie sakwy po wsiadaniu do pojazdu (stan zapamietany miedzy sesjami).
+
 ## `/kasa stan`
 
 Wypisuje ostatnio policzona sakwe bez wykonywania komend w grze.
