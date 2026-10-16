@@ -256,6 +256,18 @@ function ka:busy()
     end))
 end
 
+-- "Nie widzisz tu niczego takiego." - monet tego rodzaju nie ma w ogole
+-- w sakwie (gra nie widzi przedmiotu, wiec nie mowi "Nie masz zadnych").
+-- Linia jest ogolna, wiec liczy sie tylko zaraz po naszej komendzie
+function ka:not_found()
+    if not self.pending then return end
+    if os.time() - (self.pending.sent_at or 0) > busy_window then return end
+    local step = steps[self.pending.index]
+    self.valuing = nil
+    self:set_counted(step.kind, 0)
+    self:answered(step.kind)
+end
+
 -- policz zloto (pewne) + ocen srebro i miedz (z rabatem)
 function ka:refresh()
     if self.pending then return print_log("<DimGrey>licze juz monety") end
@@ -383,6 +395,10 @@ local triggers = {
         if not kind then return end
         ka:set_counted(kind, 0)
         ka:answered(kind)
+    end,
+    -- brak monet tego rodzaju w sakwie - gra nie widzi przedmiotu
+    ["^Nie widzisz tu niczego takiego\\.$"] = function()
+        ka:not_found()
     end,
     -- postac liczy juz co innego - krok trzeba powtorzyc
     ["^Jestes zajety liczeniem"] = function()

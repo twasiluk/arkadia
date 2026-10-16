@@ -1470,6 +1470,8 @@ Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje; po 
 
 Przelicza sakwe na zloto i wypisuje `Au <zl>`. Wykonuje `policz zlote monety` (wartosc pewna) oraz `ocen srebrne monety` i `ocen miedziane monety`. Pewna wycena (`Jest tu <n> sztuk wartych <x> miedziakow` - male stosiki) liczy sie w calosci, niepewna (`Wydaje ci sie, ze jest tu ...`) jest scinana o 20% jako zapas na blad oceny; w wydruku `/kasa stan` zrodlo to `policz`, `ocen` albo `ocen~` (wycena niepewna).
 
+Brak monet danego rodzaju (`Nie masz zadnych ... monet` albo `Nie widzisz tu niczego takiego.` zaraz po naszej komendzie) zapisuje 0 sztuk i nie czeka na timeout.
+
 `policz` blokuje postac na czas liczenia, wiec komendy ida po kolei: nastepna rusza po odpowiedzi na poprzednia (albo po timeoucie - 20 s dla `policz`, 5 s dla `ocen`; wtedy wypisuje, ktorego rodzaju monet nie policzylo). `Jestes zajety liczeniem` w odpowiedzi na nasza komende powtarza krok (do 3 razy co 4 s, potem go pomija); ta sama linia w trakcie naszego liczenia - np. po komendzie wpisanej recznie - jest pomijana.
 
 Stan sakwy trafia do elementu belki stanow (`Au 201`) - zeby go widziec, trzeba dodac `kasa` do `scripts.ui.cfg.footer_items`, np. `/cset! scripts.ui.cfg.footer_items[5]="kasa"` i `/cset! scripts.ui.footer_main_items_per_row=5`. Klikniecie w `Au` przelicza sakwe.
