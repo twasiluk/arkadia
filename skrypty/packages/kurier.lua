@@ -465,9 +465,33 @@ function ku:travel()
 end
 
 -- ---------- etap 5: przedstawienie sie ----------
+-- gra zna imie adresata dopiero, gdy on sam sie przedstawi ("Rumiany ublocony
+-- halfling przedstawia sie jako: Ignatio, Ceramista di Citta Ebino, halfling.")
+-- - wczesniej "odmien <imie>" odpowiada "Odmien <kto/co>?". Czekamy wiec na
+-- imie w tekscie, a nie na stala zwloke
+local function regex_escape(text)
+    return (text:gsub("(%W)", "\\%1"))
+end
+
 function ku:introduce()
+    local first_name = string.match(self.package.name or "", "^[^%s,]+")
+    self:clear_waiting()
+    if first_name then
+        self:watch("(?i)\\b" .. regex_escape(first_name) .. "\\b", function()
+            ku:clear_waiting()
+            ku:next("odmiana imienia", function() ku:decline() end)
+        end)
+        -- nikt sie nie przedstawil: probujemy odmiany tak czy inaczej
+        table.insert(self.timers, tempTimer(reply_timeout, function()
+            if not ku.running then return end
+            ku:clear_waiting()
+            print_log("<DimGrey>brak przedstawienia adresata, probuje odmiany")
+            ku:decline()
+        end))
+    else
+        self:next("odmiana imienia", function() ku:decline() end)
+    end
     send("przedstaw sie")
-    self:next("odmiana imienia", function() ku:decline() end)
 end
 
 -- ---------- etap 6: odmien <imie> -> celownik ----------
