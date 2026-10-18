@@ -34,6 +34,7 @@ local HP_FULL = 6      -- gmcp.char.state.hp: 6 = pelne zdrowie
 local HP_MIN = 4       -- ponizej polowy = powrot na start
 local QK_DELAY = 95    -- sekundy postoju na polu przed ruchem do nastepnego
 local QK_MAX_MOVES = 20 -- po tylu ruchach powrot na start
+local NL_EVERY = 80     -- "nl" najwyzej raz na 1:20
 
 -- gmcp przysyla tylko zmienione wartosci, stad zapasowo stan skryptow
 local function hp()
@@ -48,13 +49,24 @@ function qk.stop(msg)
     if msg then log("qk", msg) end
 end
 
+-- "nl" po walce i przed ruchem, najwyzej raz na NL_EVERY sekund
+function qk.nl()
+    if not qk.handlers then return end
+    local now = os.time()
+    if qk.nl_at and now - qk.nl_at < NL_EVERY then return end
+    qk.nl_at = now
+    send("nl")
+end
+
 function qk.go(id)
+    qk.nl()
     if amap.walker then amap:terminate_walker() end
     expandAlias("/gnaj " .. id, false)
 end
 
 -- konczy chodzenie i od razu wraca na start
 function qk.home(msg)
+    qk.nl()
     qk.stop(msg .. ", wracam na " .. qk.start)
     if tostring(amap.curr.id) ~= qk.start then
         qk.go(qk.start)
@@ -193,6 +205,7 @@ function qk.start_alias(args)
         registerAnonymousEventHandler("amapWalkerFinished", qk.arrived),
         registerAnonymousEventHandler("gmcp.objects.nums", qk.recheck),
         registerAnonymousEventHandler("gmcp_parsing_finished", qk.recheck),
+        registerAnonymousEventHandler("ateam_all_enemies_killed", qk.nl),
     }
 
     log("qk", "<green>start " .. qk.start .. ", pola: " .. table.concat(qk.poles, " "))
