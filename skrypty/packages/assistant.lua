@@ -24,15 +24,14 @@ function scripts.packages:init()
     })
 end
 
+-- picked_offer is kept until a new package is given, so a stale one (package
+-- lost or never delivered) can no longer block tracking of the next pickup
 function scripts.packages:start()
-    if not self.picked_offer then
-        self:clear()
-        self.current_offer = {}
-        self.handlers.send_command = scripts.event_register:force_register_event_handler(self.handlers.send_command, "sysDataSendRequest", function(_, command) return self:pickup(command) end)
-        self.handlers.location = scripts.event_register:force_register_event_handler(self.handlers.location, "amapNewLocation", function() self:clear() end, true)
-        self.picked_offer = nil
-        self.view_time = os.time()
-    end
+    self:clear()
+    self.current_offer = {}
+    self.handlers.send_command = scripts.event_register:force_register_event_handler(self.handlers.send_command, "sysDataSendRequest", function(_, command) return self:pickup(command) end)
+    self.handlers.location = scripts.event_register:force_register_event_handler(self.handlers.location, "amapNewLocation", function() self:clear() end, true)
+    self.view_time = os.time()
 end
 
 function scripts.packages:add(index, name, city, time)
@@ -89,6 +88,10 @@ end
 function scripts.packages:package_given(index)
     if self.trigger_fail then
         killTrigger(self.trigger_fail)
+    end
+    -- one delivery trigger at a time, bound to the package just given
+    if self.delivery_trigger then
+        killTrigger(self.delivery_trigger)
     end
     self.delivery_trigger = tempRegexTrigger("^(Oddajesz|Zwracasz) pocztowa paczke", function() self:package_delivered(matches[2] == "Oddajesz") end, 1)
     self.picked_offer = self.current_offer[index]
