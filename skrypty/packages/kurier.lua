@@ -315,11 +315,10 @@ function ku:resume_package(address)
 end
 
 -- ---------- trasa do adresata ----------
--- pieszo ponizej walk_limit krokow albo najwyzej jeden odcinek dylizansem/wozem;
--- held = paczka juz w rekach, trzeba ja dostarczyc - wtedy bez limitu
--- przesiadek, bez ograniczenia rodzaju pojazdu (statki tez), a gdy trasy nie
--- da sie ulozyc - pieszo, byle istniala droga (np. adresat w tej samej
--- twierdzy, kilkadziesiat krokow dalej, a w okolicy zadnego przystanku)
+-- pieszo ponizej walk_limit krokow, dalej dowolna trasa (przesiadki i pojazdy
+-- bez ograniczen); held = paczka juz w rekach, trzeba ja dostarczyc - gdy
+-- trasy nie da sie ulozyc - pieszo, byle istniala droga (np. adresat w tej
+-- samej twierdzy, kilkadziesiat krokow dalej, a w okolicy zadnego przystanku)
 function ku:plan_route(room, held)
     local from = current_room()
     if not from or from == -1 then
@@ -372,14 +371,8 @@ function ku:plan_route(room, held)
     for _, leg in ipairs(legs) do
         if leg.kind == "ride" then table.insert(rides, leg) end
     end
-    if #rides > 1 and not held then
-        return fail("trasa wymaga " .. #rides .. " przesiadek")
-    end
     local names = {}
     for _, ride in ipairs(rides) do
-        if ride.route.type ~= "dylizans" and not held then
-            return fail("trasa wymaga innego pojazdu niz dylizans/woz: " .. ride.route.type)
-        end
         table.insert(names, ride.route.name)
     end
 
