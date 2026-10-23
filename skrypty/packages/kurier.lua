@@ -22,6 +22,7 @@ local pickup_timeout = 20    -- czekanie na wydanie paczki
 local travel_timeout = 1800  -- czekanie na dotarcie do adresata
 local reply_timeout = 10     -- czekanie na odpowiedz "odmien"
 local check_timeout = 5      -- czekanie na napis na paczce ("ob paczke")
+local board_retries = 2      -- powroty do tablicy po "Lista przesylek zmienila sie"
 
 local package_sound = "w10-usb-in.mp3"  -- paczka w rekach (odbior / "ob paczke")
 
@@ -253,15 +254,26 @@ function ku:pick_package()
     self:clear_waiting()
     self:watch("^.* przekazuje ci jakas paczke\\.", function()
         ku:clear_waiting()
+        ku.board_retry = 0
         play_sound(package_sound)
         ku:next("podroz", function() ku:travel() end)
     end)
     self:watch("Ty juz dla nas dostatecznie ciezko zapracowales"
         .. "|Nie ufam ci na tyle, aby powierzyc ci dostarczenie tej przesylki"
         .. "|Cos ci sie chyba pomylilo, nie ma takiej oferty"
-        .. "|Niestety, nie widzisz tu nikogo, od kogo mozna by wziac zlecenie"
-        .. "|Lista przesylek zmienila sie", function()
+        .. "|Niestety, nie widzisz tu nikogo, od kogo mozna by wziac zlecenie", function()
         ku:stop("poczta nie wydala paczki")
+    end)
+    -- tablica nieaktualna: od nowa "obejrzyj tablice", najwyzej board_retries razy
+    self:watch("^Lista przesylek zmienila sie", function()
+        if (ku.board_retry or 0) >= board_retries then
+            return ku:stop("poczta nie wydala paczki (lista przesylek wciaz sie zmienia)")
+        end
+        ku.board_retry = (ku.board_retry or 0) + 1
+        ku:clear_waiting()
+        ku.package = nil
+        print_log(string.format("<DimGrey>lista przesylek zmienila sie (%d/%d)", ku.board_retry, board_retries))
+        ku:next("tablica", function() ku:read_board() end)
     end)
     self:deadline(pickup_timeout, "nie doczekalem sie paczki")
     send("wybierz paczke " .. index)
@@ -551,6 +563,7 @@ function ku:run(count)
     self.running = true
     self.left = count or 1
     self.package = nil
+    self.board_retry = 0
     print_log("<green>start, kursow: " .. self.left)
     self.stage = { name = "sprawdzenie paczki", at = os.time() }
     self:check_package()
@@ -573,6 +586,7 @@ function ku:state()
     local lines = {
         { "running", self.running },
         { "left", self.left },
+        { "board_retry", self.board_retry },
         { "stage", self.stage and string.format("%s (%+ds)", self.stage.name, self.stage.at - now) },
         { "deadline", self.deadline_info and string.format("%s (za %ds)", self.deadline_info.msg, self.deadline_info.at - now) },
         { "package", self.package },
