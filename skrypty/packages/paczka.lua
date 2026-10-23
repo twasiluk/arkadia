@@ -2,8 +2,8 @@
 --  /paczka - "ob paczke", adresat z napisu na paczce, lokacja
 --  z npc.json mapy (Delwing/arkadia-mapa) -> "/gnaj <room_id>"
 --  Zapas: baza asystenta paczek (scripts.packages).
---  Na poczcie (nazwa lokacji z "poczta") zapamietuje lokacje;
---  po "Oddajesz pocztowa paczke" wypisuje link powrotu.
+--  Na poczcie (nazwa lokacji z "poczta") zapamietuje lokacje (tez /kurier
+--  przy odbiorze); /paczka i "Oddajesz pocztowa paczke" wypisuja link powrotu.
 --  Po /gnaj wykonuje /trasa <miasto> (ostatni czlon adresu na paczce).
 -- ============================================================
 
@@ -119,20 +119,30 @@ function pl:clear()
     if self.timer then killTimer(self.timer); self.timer = nil end
 end
 
+-- poczta nadania: room_id i nazwa lokacji (ustawia tez /kurier przy odbiorze)
+function pl:set_post(room)
+    room = tonumber(room)
+    if not room or room == -1 then return end
+    self.post_room = room
+    self.post_name = getRoomName(room)
+end
+
 -- lokacja poczty, jesli /paczka wywolane na poczcie
 function pl:remember_post()
     local room = amap and amap.curr and amap.curr.id
     local name = room and room ~= -1 and getRoomName(room)
     if name and string.find(string.lower(name), "poczta", 1, true) then
-        self.post_room = room
+        self:set_post(room)
     end
 end
 
 function pl:show_post()
     if not self.post_room then return end
     local cmd = "/gnaj " .. self.post_room
+    local name = self.post_name or getRoomName(self.post_room) or "?"
     echo("\n")
-    scripts:print_url("<light_slate_blue>Poczta: " .. cmd, function() expandAlias(cmd) end, getRoomName(self.post_room) or cmd)
+    scripts:print_url("<light_slate_blue>Poczta: " .. name .. " (" .. self.post_room .. ")",
+        function() expandAlias(cmd) end, cmd)
     echo("\n")
 end
 
@@ -143,6 +153,7 @@ function pl:run()
         local name, city = pl:parse_address(matches[2])
         pl:clear()
         local rooms = pl:show(name)
+        pl:show_post()
         local near, steps = pl:nearest_walk(rooms)
         if near then
             scripts:print_log(string.format("Adresat %d krokow pieszo - /gnaj %d", steps, near))

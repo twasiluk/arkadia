@@ -255,6 +255,7 @@ function ku:pick_package()
     self:watch("^.* przekazuje ci jakas paczke\\.", function()
         ku:clear_waiting()
         ku.board_retry = 0
+        scripts.packages.lookup:set_post(current_room())
         play_sound(package_sound)
         ku:next("podroz", function() ku:travel() end)
     end)
