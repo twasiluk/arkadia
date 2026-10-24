@@ -162,13 +162,30 @@ function ku:read_board()
 end
 
 -- ---------- etap 3: pierwsza paczka ----------
+-- adresaci pomijani na tablicy (bez wielkosci liter)
+local ignored_recipients = {
+    "ARIBERT D'AQUITAINE",
+    "Vorster Main",
+}
+
+local function is_ignored(name)
+    local lowered = string.lower(string.trim(name or ""))
+    for _, ignored in ipairs(ignored_recipients) do
+        if lowered == string.lower(ignored) then return true end
+    end
+    return false
+end
+
 -- indeksy w current_offer trzymane sa tak, jak zlapal je trigger tablicy
--- (tekst), wiec pierwsza oferta to ta o najmniejszym numerze
+-- (tekst), wiec pierwsza oferta to ta o najmniejszym numerze; adresaci
+-- z ignored_recipients pomijani
 local function first_offer()
     local best_index, best
     for index, offer in pairs(scripts.packages.current_offer or {}) do
         local number = tonumber(index)
-        if number and (not best_index or number < tonumber(best_index)) then
+        if number and is_ignored(offer.name) then
+            print_log("<DimGrey>pomijam paczke " .. index .. ": " .. offer.name)
+        elseif number and (not best_index or number < tonumber(best_index)) then
             best_index, best = index, offer
         end
     end
@@ -240,7 +257,7 @@ end
 
 function ku:pick_package()
     local index, offer = first_offer()
-    if not offer then return self:stop("brak pierwszej paczki na tablicy") end
+    if not offer then return self:stop("brak paczki na tablicy (poza pomijanymi adresatami)") end
     if not offer.name then return self:stop("paczka bez adresata") end
     local room, err = self:resolve_location(offer)
     if not room then return self:stop(err) end
