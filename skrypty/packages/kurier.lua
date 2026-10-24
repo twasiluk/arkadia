@@ -553,7 +553,8 @@ end
 
 -- ---------- sterowanie ----------
 function ku:run(count)
-    if self.running then return print_log("<tomato>kurier juz dziala (/kurier stop)") end
+    -- nowy /kurier zastepuje dzialajacy
+    if self.running then self:stop("przerwane - nowy /kurier", "DimGrey") end
     self.running = true
     self.left = count or 1
     self.package = nil
