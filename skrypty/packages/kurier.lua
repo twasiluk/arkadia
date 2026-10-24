@@ -1,6 +1,7 @@
 -- ============================================================
---  /kurier [n] - petla kurierska (n = 0: jeden kurs bez powrotu na poczte): poczta -> pierwsza paczka z tablicy
+--  /kurier [n] - petla kurierska: poczta -> pierwsza paczka z tablicy
 --  -> podroz do adresata -> "daj paczke <imie w celowniku>".
+--  /kurier 0 - jeden kurs bez powrotu na poczte.
 --  Kazdy etap poprzedza losowa zwloka (delay_min..delay_max).
 --  Na starcie "ob paczke": paczka juz w rekach -> od razu do adresata.
 --  Kazdy problem lub niejednoznacznosc konczy petle.
