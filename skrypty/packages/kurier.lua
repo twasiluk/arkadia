@@ -1,5 +1,5 @@
 -- ============================================================
---  /kurier [n] - petla kurierska: poczta -> pierwsza paczka z tablicy
+--  /kurier [n] - petla kurierska (n = 0: jeden kurs bez powrotu na poczte): poczta -> pierwsza paczka z tablicy
 --  -> podroz do adresata -> "daj paczke <imie w celowniku>".
 --  Kazdy etap poprzedza losowa zwloka (delay_min..delay_max).
 --  Na starcie "ob paczke": paczka juz w rekach -> od razu do adresata.
@@ -562,6 +562,7 @@ function ku:finish_round()
     self.package = nil
     self.left = (self.left or 1) - 1
     if self.left <= 0 then
+        if self.no_return then return self:stop("gotowe", "green") end
         return self:next("powrot na poczte", function() ku:goto_post(true) end)
     end
     print_log("<green>zostalo kursow: " .. self.left)
@@ -573,7 +574,9 @@ function ku:run(count)
     -- nowy /kurier zastepuje dzialajacy
     if self.running then self:stop("przerwane - nowy /kurier", "DimGrey") end
     self.running = true
-    self.left = count or 1
+    -- /kurier 0: jeden kurs bez powrotu na poczte
+    self.no_return = count == 0
+    self.left = math.max(count or 1, 1)
     self.package = nil
     self.board_retry = 0
     print_log("<green>start, kursow: " .. self.left)
@@ -598,6 +601,7 @@ function ku:state()
     local lines = {
         { "running", self.running },
         { "left", self.left },
+        { "no_return", self.no_return },
         { "board_retry", self.board_retry },
         { "stage", self.stage and string.format("%s (%+ds)", self.stage.name, self.stage.at - now) },
         { "deadline", self.deadline_info and string.format("%s (za %ds)", self.deadline_info.msg, self.deadline_info.at - now) },
