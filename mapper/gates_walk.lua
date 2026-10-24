@@ -156,6 +156,8 @@ end
 -- na lokacje: calkowita, co najmniej delay_limit i istniejaca na mapie
 -- ("/gnaj 7640 7615" to dwa punkty trasy)
 local function parse_args(text)
+    -- "#etykieta" do konca linii to opis po stronie klienta, nie cel
+    text = text:gsub("%s+#.*$", "")
     local targets = {}
     for word in string.gmatch(text, "%S+") do table.insert(targets, word) end
     if #targets < 2 then return targets end
