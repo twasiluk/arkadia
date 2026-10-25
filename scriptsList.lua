@@ -217,6 +217,7 @@ return {
     "skrypty/inventory/lampa",
     "skrypty/misc/money",
     "skrypty/misc/kasa",
+    "skrypty/misc/qm",
     "skrypty/misc/wycinanie-triggers",
     "skrypty/misc/food",
     "skrypty/misc/enemies_eq",

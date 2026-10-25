@@ -1466,6 +1466,22 @@ Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje; po 
 
 `npc.json` jest pobierany do katalogu profilu przy starcie skryptow, tylko jesli jeszcze go tam nie ma. Aby odswiezyc - usun plik i przeladuj skrypty.
 
+## `/qm [list|push|pop|next|up|down|rm|start|stop|delay]`
+
+Kolejka zadan (FIFO). Zadanie to komenda - alias (`/gnaj 7640`, `/kurier 0`, `/podroz ...`) albo komenda gry - wykonywana jak wpisana recznie. Kolejka i opoznienie sa zapamietane miedzy sesjami.
+
+- `/qm`, `/qm list` - stan, biezace zadanie i lista zadan (pozycja, id, komenda)
+- `/qm push <komenda>` - dodaje zadanie na koniec (komenda moze miec spacje)
+- `/qm pop` - zdejmuje pierwsze zadanie i wykonuje je jednorazowo (kolejka nie rusza dalej)
+- `/qm next` - wypisuje nastepne zadanie
+- `/qm up <id>`, `/qm down <id>` - przesuwa zadanie o jedna pozycje
+- `/qm rm <id|fragment>` - usuwa zadanie o danym id albo wszystkie, ktorych komenda zawiera fragment (bez wielkosci liter)
+- `/qm start` - wykonuje zadania po kolei, do oproznienia kolejki
+- `/qm stop` - zatrzymuje kolejke; biezaca komenda nie jest przerywana (chodzik - `/stop`, kurier - `/kurier stop`)
+- `/qm delay <sekundy>` - przerwa po kazdym zadaniu
+
+Koniec zadania: 1.5 s po wykonaniu komendy kolejka co 0.5 s sprawdza, czy pracuje chodzik, trasa `/gnaj`, `/podroz` albo `/kurier`; dwa kolejne odczyty "nic nie pracuje" = zadanie skonczone. Komenda gry bez skryptu konczy sie wiec po ok. 2.5 s. Przerwanie skryptu (np. `/stop` chodzika) tez konczy zadanie - kolejka rusza dalej.
+
 ## `/kasa`
 
 Przelicza sakwe na zloto i wypisuje `Au <zl>`. Wykonuje `policz zlote monety` (wartosc pewna) oraz `ocen srebrne monety` i `ocen miedziane monety`. Pewna wycena (`Jest tu <n> sztuk wartych <x> miedziakow` - male stosiki) liczy sie w calosci, niepewna (`Wydaje ci sie, ze jest tu ...`) jest scinana o 20% jako zapas na blad oceny; w wydruku `/kasa stan` zrodlo to `policz`, `ocen` albo `ocen~` (wycena niepewna).
