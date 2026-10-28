@@ -1460,9 +1460,18 @@ Wypisuje odcinki (przejazdy i przejscia pieszo miedzy przystankami) z orientacyj
 
 ## `/paczka`
 
-Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>,` i szuka go (bez wielkosci liter) w `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`), a gdy brak - w bazie asystenta paczek, a na koniec wsrod nazw lokacji na mapie (adres bez przecinka, np. `POCZTA W JOUINARD`). Wypisuje klikalne `/gnaj <id lokacji>` i wykonuje `/trasa <miasto> <id lokacji adresata>` (miasto = ostatni czlon adresu, np. `..., ZNAWCA WIN, OXENFURT.`; id tylko gdy lokacja jednoznaczna; bez przecinka - `/trasa <id lokacji>`). Gdy adresat jest blizej niz 20 krokow pieszo od aktualnej lokacji, zamiast `/trasa` wykonuje od razu `/gnaj <id lokacji>` (przy kilku pasujacych lokacjach - najblizsza). Dopisek ` - PILNE!` jest pomijany.
+Wykonuje `ob paczke`, bierze adresata z napisu `Wypisano na niej duzymi literami: <imie>, [...,] <miasto>.` (dopisek ` - PILNE!` pomijany) i szuka jego lokacji. Te sama lokacje wybiera `/kurier` (wspolny resolver `scripts.packages.lookup:resolve`, `skrypty/packages/paczka.lua`).
 
-Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje; po `Oddajesz pocztowa paczke` wypisuje klikalne `Poczta: /gnaj <id poczty>`.
+Zrodla po kolei (bez wielkosci liter), pierwsze niepuste wygrywa:
+1. `npc.json` z repo mapy (`https://delwing.github.io/arkadia-mapa/data/npc.json`)
+2. baza asystenta paczek (lokacje udanych dostaw, wszystkie wiersze) + lokacja z tablicy od asystenta (u `/kurier`)
+3. nazwy lokacji na mapie (adres bez przecinka, np. `POCZTA W JOUINARD`)
+
+Gdy baza asystenta wskazuje inne lokacje niz `npc.json`, wypisuje rozbieznosc (`baza paczek: 6516, npc.json: 7216 - biore npc.json`) - to zwykle bledny wiersz bazy. Kilka lokacji: zostaja te w miescie z adresu (bez miasta - w aktualnym), z nich najblizsza.
+
+Wypisuje klikalne `/gnaj <id lokacji>` (wszyscy kandydaci) i wybrana lokacje: blizej niz 20 krokow pieszo - `/gnaj <id>`, dalej - `/trasa <miasto> <id>` (bez miasta w adresie - `/trasa <id>`).
+
+Wywolane na poczcie (nazwa lokacji zawiera `poczta`) zapamietuje ta lokacje (`/kurier` - przy odbiorze paczki); `/paczka` i `Oddajesz pocztowa paczke` wypisuja klikalne `Poczta: <nazwa> (<id>)`.
 
 `npc.json` jest pobierany do katalogu profilu przy starcie skryptow, tylko jesli jeszcze go tam nie ma. Aby odswiezyc - usun plik i przeladuj skrypty.
 

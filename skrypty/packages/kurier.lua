@@ -15,6 +15,8 @@ scripts.kurier = scripts.kurier or {
 }
 
 local ku = scripts.kurier
+-- wspolne: lokacja adresata, kroki, poczty, miasta (skrypty/packages/paczka.lua)
+local pl = scripts.packages.lookup
 
 local delay_min, delay_max = 1.5, 4.5
 local walk_limit = 50        -- pieszo do adresata bez szukania polaczenia
@@ -97,47 +99,14 @@ function ku:on_arrival(room, callback)
     table.insert(self.handlers, registerAnonymousEventHandler("amapNewLocation", check))
 end
 
-local function current_room()
-    return amap and amap.curr and amap.curr.id
-end
-
--- lokacje z "poczta" w nazwie, ktore nie przyjmuja zlecen (poczty prywatne)
-local skip_posts = { [7304] = true, [7612] = true, [15485] = true }
-
-local function room_is_post(room)
-    room = tonumber(room)
-    if not room or room == -1 or skip_posts[room] then return false end
-    local name = getRoomName(room)
-    return name and string.find(string.lower(name), "poczta", 1, true) ~= nil
-end
-
 -- ---------- etap 1: najblizsza poczta ----------
-function ku:nearest_post()
-    local from = current_room()
-    if not from or from == -1 then return nil end
-    if room_is_post(from) then return from, 0 end
-    local found = searchRoom("poczta", false, false)
-    if type(found) ~= "table" then return nil end
-    local best, best_steps
-    for room in pairs(found) do
-        room = tonumber(room)
-        if room and room ~= -1 and room_is_post(room) then
-            local steps = room == from and 0 or (getPath(from, room) and #speedWalkPath)
-            if steps and (not best_steps or steps < best_steps) then
-                best, best_steps = room, steps
-            end
-        end
-    end
-    return best, best_steps
-end
-
 -- po dojsciu: tablica, albo "gotowe" po ostatnim kursie (last)
 function ku:goto_post(last)
     local function arrived()
         if last then return ku:stop("gotowe", "green") end
         ku:next("tablica", function() ku:read_board() end)
     end
-    local room, steps = self:nearest_post()
+    local room, steps = pl:nearest_post()
     if not room then return self:stop("nie znalazlem poczty na mapie") end
     if steps == 0 then
         print_log("<DimGrey>juz na poczcie " .. room)
@@ -193,75 +162,20 @@ local function first_offer()
     return best_index, best
 end
 
--- miasto = nazwa obszaru mapy (jak ostatni matcher scripts.trasa:resolve)
-local function room_city(room)
-    local area = room and room ~= -1 and getRoomArea(room)
-    return area and getRoomAreaName(area) or nil
-end
-
--- generyczne okreslenia przed nazwa miejsca na paczce ("OSADA FANDALL")
-local city_prefixes = { "osada", "wioska", "wies", "miasto", "miasteczko",
-    "gmina", "twierdza", "zamek", "port", "przystan" }
-
-local function city_core(city)
-    local lowered = string.lower(string.trim(city or ""))
-    for _, prefix in ipairs(city_prefixes) do
-        local rest = string.match(lowered, "^" .. prefix .. "%s+(.+)$")
-        if rest then return rest end
-    end
-    return lowered
-end
-
--- obszar mapy vs miasto z paczki w obie strony: obszar "Fandall" pasuje do
--- adresu "osada Fandall", a obszar "Osada Fandall" do adresu "Fandall"
-local function in_city(room, city)
-    local area = room_city(room)
-    if not area or area == "" then return false end
-    area, city = string.lower(area), city_core(city)
-    if city == "" then return false end
-    return string.find(area, city, 1, true) ~= nil
-        or string.find(city, area, 1, true) ~= nil
-end
-
--- lokacja adresata: asystent paczek, potem npc.json/baza/nazwa lokacji
--- (/paczka); kilka lokacji -> te w miescie z tablicy, bez miasta na
--- tablicy -> w aktualnym miescie; z pozostalych najblizsza. Miasto tylko
--- zaweza liste z listy npc - nieznane miasto nie blokuje kursu
+-- lokacja adresata: pl:resolve (jak /paczka); offer.location od asystenta
+-- (z tablicy) to tylko podpowiedz, npc.json ma pierwszenstwo
 function ku:resolve_location(offer)
-    -- baza asystenta trzyma room_id jako string ("1279" ~= 1279)
-    local location = tonumber(offer.location)
-    if location and location ~= -1 then return location end
-    local lookup = scripts.packages.lookup
-    local rooms = lookup and lookup:find_rooms(offer.name) or {}
-    if #rooms == 0 then return nil, "nie znam lokacji adresata: " .. offer.name end
-    if #rooms == 1 then return rooms[1] end
-
-    local city = offer.city or room_city(current_room())
-    local candidates = {}
-    for _, room in ipairs(rooms) do
-        if city and in_city(room, city) then table.insert(candidates, room) end
-    end
-    if #candidates == 0 then
-        print_log(string.format("<DimGrey>adresat w %d lokacjach, zadna w %s - biore najblizsza",
-            #rooms, city and ("\"" .. city .. "\"") or "nieznanym miescie"))
-        candidates = rooms
-    end
-
-    local from = current_room()
-    local best, best_steps
-    for _, room in ipairs(candidates) do
-        local steps = room == from and 0 or (getPath(from, room) and #speedWalkPath)
-        if steps and (not best_steps or steps < best_steps) then best, best_steps = room, steps end
-    end
-    return best or candidates[1]
+    local room, _, notes = pl:resolve(offer.name, { city = offer.city, hint = offer.location })
+    for _, note in ipairs(notes) do print_log("<DimGrey>" .. note) end
+    return room
 end
 
 function ku:pick_package()
     local index, offer = first_offer()
     if not offer then return self:stop("brak paczki na tablicy (poza pomijanymi adresatami)") end
     if not offer.name then return self:stop("paczka bez adresata") end
-    local room, err = self:resolve_location(offer)
-    if not room then return self:stop(err) end
+    local room = self:resolve_location(offer)
+    if not room then return self:stop("nie znam lokacji adresata: " .. offer.name) end
 
     local plan = self:plan_route(room)
     if not plan then return end
@@ -273,7 +187,7 @@ function ku:pick_package()
     self:watch("^.* przekazuje ci jakas paczke\\.", function()
         ku:clear_waiting()
         ku.board_retry = 0
-        scripts.packages.lookup:set_post(current_room())
+        pl:set_post(pl:current_room())
         play_sound(package_sound)
         ku:next("podroz", function() ku:travel() end)
     end)
@@ -317,15 +231,15 @@ function ku:check_package()
 end
 
 function ku:resume_package(address)
-    local name, city = scripts.packages.lookup:parse_address(address)
+    local name, city = pl:parse_address(address)
     local offer = { name = name, city = city }
     -- asystent zapamietal lokacje przy odbiorze tej paczki
     local picked = scripts.packages.picked_offer
     if picked and picked.name and string.lower(picked.name) == string.lower(name) then
         offer.location = picked.location
     end
-    local room, err = self:resolve_location(offer)
-    if not room then return self:stop("mam paczke, ale " .. err) end
+    local room = self:resolve_location(offer)
+    if not room then return self:stop("mam paczke, ale nie znam lokacji adresata: " .. name) end
     local plan = self:plan_route(room, true)
     if not plan then return end
     self.package = { name = name, room = room, plan = plan }
@@ -339,8 +253,8 @@ end
 -- trasy nie da sie ulozyc - pieszo, byle istniala droga (np. adresat w tej
 -- samej twierdzy, kilkadziesiat krokow dalej, a w okolicy zadnego przystanku)
 function ku:plan_route(room, held)
-    local from = current_room()
-    if not from or from == -1 then
+    local from = pl:current_room()
+    if not from then
         self:stop("nieznana aktualna lokacja")
         return nil
     end
@@ -349,7 +263,7 @@ function ku:plan_route(room, held)
         return nil
     end
 
-    local steps = room == from and 0 or (getPath(from, room) and #speedWalkPath)
+    local steps = pl:steps(from, room)
     if steps and steps < walk_limit then
         return { commands = { "/gnaj " .. room }, label = steps .. " krokow pieszo" }
     end
@@ -480,7 +394,7 @@ end
 function ku:travel()
     local package = self.package
     self:clear_waiting()
-    if tonumber(current_room()) == package.room then
+    if pl:current_room() == package.room then
         return self:at_recipient()
     end
     self:on_arrival(package.room, function() ku:at_recipient() end)
@@ -598,7 +512,7 @@ end
 
 function ku:state()
     local now = os.time()
-    local room = current_room()
+    local room = pl:current_room()
     local lines = {
         { "running", self.running },
         { "left", self.left },
@@ -608,7 +522,7 @@ function ku:state()
         { "deadline", self.deadline_info and string.format("%s (za %ds)", self.deadline_info.msg, self.deadline_info.at - now) },
         { "package", self.package },
         { "triggers/timers/handlers", #self.triggers .. "/" .. #self.timers .. "/" .. #self.handlers },
-        { "room", room and string.format("%s %s [%s]", room, tostring(room ~= -1 and getRoomName(room)), tostring(room_city(room))) },
+        { "room", room and string.format("%s %s [%s]", room, tostring(getRoomName(room)), tostring(pl:room_city(room))) },
         { "walker", amap and string.format("%s dest=%s", tostring(amap.walker), tostring(amap.walker_dest)) },
         { "single_npc", self:single_npc() },
         { "current_offer", scripts.packages.current_offer },
